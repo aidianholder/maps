@@ -59,9 +59,10 @@ export class LayerPanel {
 
     for (const layer of styleLayers) {
       if (hiddenSet.has(layer.id)) continue;
-      if (hiddenPrefixes.some(p => layer.id.startsWith(p))) continue;
-
       const group = layerToGroup.get(layer.id);
+      // Grouped layers bypass prefix-based hiding (explicit group = explicit opt-in)
+      if (!group && hiddenPrefixes.some(p => layer.id.startsWith(p))) continue;
+
       if (group) {
         if (!renderedGroups.has(group.displayName)) {
           renderedGroups.add(group.displayName);
