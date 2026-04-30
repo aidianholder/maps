@@ -4,9 +4,9 @@
  * Removed layers are cached so they can be re-inserted at the correct position.
  */
 export class LayerPanel {
-  constructor(map, styleGroupsMap = {}) {
+  constructor(map, styleConfigs = []) {
     this._map = map;
-    this._styleGroupsMap = styleGroupsMap; // { sourceKey: groupConfig[] }
+    this._styleConfigs = styleConfigs; // [{ test(style), groups, hidden, hiddenPrefixes }]
     this._removed = new Map(); // layerId -> { layer, beforeId }
   }
 
@@ -31,11 +31,12 @@ export class LayerPanel {
   // ── Private ───────────────────────────────────────────────────────────────
 
   _getConfig() {
-    const sources = this._map.getStyle()?.sources ?? {};
-    for (const [sourceKey, config] of Object.entries(this._styleGroupsMap)) {
-      if (sourceKey in sources) return config;
+    const style = this._map.getStyle();
+    if (!style) return { groups: [], hidden: [], hiddenPrefixes: [] };
+    for (const config of this._styleConfigs) {
+      if (config.test(style)) return config;
     }
-    return { groups: [], hidden: [] };
+    return { groups: [], hidden: [], hiddenPrefixes: [] };
   }
 
   _rebuild() {

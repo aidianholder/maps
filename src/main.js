@@ -3,7 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { StyleSwitcherControl } from './style-switcher.js';
 import { LayerPanel } from './layer-panel.js';
-import { STYLE_GROUPS_BY_SOURCE } from './style-groups.js';
+import { STYLE_CONFIGS } from './style-groups.js';
 import { MaplibreExportControl } from '@watergis/maplibre-gl-export';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
@@ -16,6 +16,7 @@ const STYLES = [
   { title: 'Proto',     uri: '/styles/protostyle2.json' },
   { title: 'Bright',    uri: '/styles/osmbright.json' },
   { title: 'Positron',  uri: '/styles/positron.json' },
+  { title: 'AWS',       uri: '/styles/aws.json' },
 ];
 
 const DEFAULT_STYLE = 'Proto';
@@ -48,5 +49,5 @@ map.addControl(
   'top-right'
 );
 
-const layerPanel = new LayerPanel(map, STYLE_GROUPS_BY_SOURCE);
+const layerPanel = new LayerPanel(map, STYLE_CONFIGS);
 layerPanel.mount(document.getElementById('sidebar'));
