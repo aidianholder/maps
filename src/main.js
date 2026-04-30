@@ -3,6 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { StyleSwitcherControl } from './style-switcher.js';
 import { LayerPanel } from './layer-panel.js';
+import { STYLE_GROUPS_BY_SOURCE } from './style-groups.js';
 import { MaplibreExportControl } from '@watergis/maplibre-gl-export';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
@@ -47,5 +48,5 @@ map.addControl(
   'top-right'
 );
 
-const layerPanel = new LayerPanel(map);
+const layerPanel = new LayerPanel(map, STYLE_GROUPS_BY_SOURCE);
 layerPanel.mount(document.getElementById('sidebar'));

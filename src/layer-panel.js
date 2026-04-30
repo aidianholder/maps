@@ -1,12 +1,13 @@
 /**
  * Layer panel — shows all layers from the active style with checkboxes.
+ * Supports grouping multiple layers under one display name via styleGroupsMap.
  * Removed layers are cached so they can be re-inserted at the correct position.
  */
 export class LayerPanel {
-  constructor(map) {
+  constructor(map, styleGroupsMap = {}) {
     this._map = map;
-    // layerId -> { layer, beforeId } for removed layers
-    this._removed = new Map();
+    this._styleGroupsMap = styleGroupsMap; // { sourceKey: groupConfig[] }
+    this._removed = new Map(); // layerId -> { layer, beforeId }
   }
 
   mount(container) {
@@ -27,17 +28,83 @@ export class LayerPanel {
     if (this._map.isStyleLoaded()) this._rebuild();
   }
 
+  // ── Private ───────────────────────────────────────────────────────────────
+
+  _getConfig() {
+    const sources = this._map.getStyle()?.sources ?? {};
+    for (const [sourceKey, config] of Object.entries(this._styleGroupsMap)) {
+      if (sourceKey in sources) return config;
+    }
+    return { groups: [], hidden: [] };
+  }
+
   _rebuild() {
     this._removed.clear();
     this._list.innerHTML = '';
-    const layers = this._map.getStyle()?.layers ?? [];
 
-    for (const layer of layers) {
-      this._list.appendChild(this._makeRow(layer.id));
+    const { groups, hidden = [], hiddenPrefixes = [] } = this._getConfig();
+    const hiddenSet = new Set(hidden);
+    const styleLayers = this._map.getStyle()?.layers ?? [];
+    const styleLayerIds = new Set(styleLayers.map(l => l.id));
+
+    // Build layerId -> group lookup
+    const layerToGroup = new Map();
+    for (const group of groups) {
+      for (const lid of group.layers) {
+        layerToGroup.set(lid, group);
+      }
+    }
+
+    const renderedGroups = new Set();
+
+    for (const layer of styleLayers) {
+      if (hiddenSet.has(layer.id)) continue;
+      if (hiddenPrefixes.some(p => layer.id.startsWith(p))) continue;
+
+      const group = layerToGroup.get(layer.id);
+      if (group) {
+        if (!renderedGroups.has(group.displayName)) {
+          renderedGroups.add(group.displayName);
+          const presentLayers = group.layers.filter(id => styleLayerIds.has(id));
+          this._list.appendChild(this._makeGroupRow(group.displayName, presentLayers));
+        }
+      } else {
+        this._list.appendChild(this._makeSingleRow(layer.id));
+      }
     }
   }
 
-  _makeRow(layerId) {
+  _makeGroupRow(displayName, presentLayers) {
+    const li = document.createElement('li');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = `layer-cb-${CSS.escape(displayName)}`;
+    cb.checked = true;
+
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        for (const lid of presentLayers) {
+          if (this._removed.has(lid)) this._showLayer(lid);
+        }
+      } else {
+        for (const lid of presentLayers) {
+          if (!this._removed.has(lid)) this._hideLayer(lid);
+        }
+      }
+    });
+
+    const label = document.createElement('label');
+    label.htmlFor = cb.id;
+    label.textContent = displayName;
+    label.title = displayName;
+
+    li.appendChild(cb);
+    li.appendChild(label);
+    return li;
+  }
+
+  _makeSingleRow(layerId) {
     const li = document.createElement('li');
 
     const cb = document.createElement('input');
@@ -47,9 +114,9 @@ export class LayerPanel {
 
     cb.addEventListener('change', () => {
       if (cb.checked) {
-        this._showLayer(layerId);
+        if (this._removed.has(layerId)) this._showLayer(layerId);
       } else {
-        this._hideLayer(layerId);
+        if (!this._removed.has(layerId)) this._hideLayer(layerId);
       }
     });
 
@@ -64,36 +131,27 @@ export class LayerPanel {
   }
 
   _hideLayer(layerId) {
-    const style = this._map.getStyle();
-    const layers = style.layers;
+    const layers = this._map.getStyle()?.layers ?? [];
     const idx = layers.findIndex(l => l.id === layerId);
     if (idx === -1) return;
-
-    const layer = layers[idx];
-    // record what comes after so we can re-insert at the same position
     const beforeId = layers[idx + 1]?.id ?? null;
-    this._removed.set(layerId, { layer, beforeId });
+    this._removed.set(layerId, { layer: layers[idx], beforeId });
     this._map.removeLayer(layerId);
   }
 
   _showLayer(layerId) {
     const cached = this._removed.get(layerId);
     if (!cached) return;
-
     const { layer, beforeId } = cached;
     this._removed.delete(layerId);
-
-    // beforeId may itself have been removed; walk forward to find a visible anchor
-    const visibleBefore = this._findVisibleAnchor(beforeId);
-    this._map.addLayer(layer, visibleBefore ?? undefined);
+    const anchor = this._findVisibleAnchor(beforeId);
+    this._map.addLayer(layer, anchor ?? undefined);
   }
 
   _findVisibleAnchor(beforeId) {
     if (!beforeId) return null;
-    const style = this._map.getStyle();
-    const ids = new Set(style.layers.map(l => l.id));
+    const ids = new Set((this._map.getStyle()?.layers ?? []).map(l => l.id));
     if (ids.has(beforeId)) return beforeId;
-    // That layer is also removed — look at what was originally after it
     const cached = this._removed.get(beforeId);
     if (cached) return this._findVisibleAnchor(cached.beforeId);
     return null;
