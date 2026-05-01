@@ -4,7 +4,7 @@ import { Protocol } from 'pmtiles';
 import { StyleSwitcherControl } from './style-switcher.js';
 import { LayerPanel } from './layer-panel.js';
 import { STYLE_CONFIGS } from './style-groups.js';
-import { MaplibreExportControl } from '@watergis/maplibre-gl-export';
+import { CustomExportControl } from './custom-export-control.js';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
 
@@ -38,13 +38,12 @@ map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right'
 map.addControl(new StyleSwitcherControl(STYLES, DEFAULT_STYLE), 'bottom-left');
 
 map.addControl(
-  new MaplibreExportControl({
+  new CustomExportControl({
     PageSize: 'LETTER',
     PageOrientation: 'Landscape',
     Format: 'PDF',
     DPI: 150,
     Filename: 'map-export',
-    PrintableArea: true,
   }),
   'top-right'
 );
