@@ -1,82 +1,179 @@
 /**
- * Layer panel — shows all layers from the active style with checkboxes.
- * Supports grouping multiple layers under one display name via styleGroupsMap.
- * Removed layers are cached so they can be re-inserted at the correct position.
+ * Layer panel — collapsible sidebar with folder-tree sections and per-layer checkboxes.
  */
 export class LayerPanel {
   constructor(map, styleConfigs = []) {
     this._map = map;
-    this._styleConfigs = styleConfigs; // [{ test(style), groups, hidden, hiddenPrefixes }]
+    this._styleConfigs = styleConfigs;
     this._removed = new Map(); // layerId -> { layer, beforeId }
   }
 
   mount(container) {
+    this._sidebar = container;
+
+    // ── Collapsed tab (visible when sidebar is collapsed) ──────────────────
+    this._tab = document.createElement('div');
+    this._tab.id = 'sidebar-tab';
+    this._tab.setAttribute('aria-label', 'Expand layers panel');
+    this._tab.innerHTML = `<span class="tab-label">LAYERS</span><span class="tab-arrow">›</span>`;
+    this._tab.addEventListener('click', () => this._expand());
+
+    // ── Panel (visible when expanded) ──────────────────────────────────────
     this._el = document.createElement('div');
     this._el.id = 'layer-panel';
 
-    const heading = document.createElement('h2');
-    heading.textContent = 'Layers';
-    this._el.appendChild(heading);
+    // Header row with title + close button
+    const header = document.createElement('div');
+    header.id = 'panel-header';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Layers';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'panel-close';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Collapse panel');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => this._collapse());
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    this._el.appendChild(header);
 
     this._list = document.createElement('ul');
     this._list.id = 'layer-list';
     this._el.appendChild(this._list);
 
+    container.appendChild(this._tab);
     container.appendChild(this._el);
 
     this._map.on('style.load', () => this._rebuild());
     if (this._map.isStyleLoaded()) this._rebuild();
   }
 
-  // ── Private ───────────────────────────────────────────────────────────────
+  // ── Collapse / expand ────────────────────────────────────────────────────
+
+  _collapse() {
+    this._sidebar.classList.add('collapsed');
+  }
+
+  _expand() {
+    this._sidebar.classList.remove('collapsed');
+  }
+
+  // ── Config lookup ─────────────────────────────────────────────────────────
 
   _getConfig() {
     const style = this._map.getStyle();
-    if (!style) return { groups: [], hidden: [], hiddenPrefixes: [] };
+    if (!style) return { groups: [], hidden: [], hiddenPrefixes: [], sections: [] };
     for (const config of this._styleConfigs) {
       if (config.test(style)) return config;
     }
-    return { groups: [], hidden: [], hiddenPrefixes: [] };
+    return { groups: [], hidden: [], hiddenPrefixes: [], sections: [] };
   }
+
+  // ── Rebuild ───────────────────────────────────────────────────────────────
 
   _rebuild() {
     this._removed.clear();
     this._list.innerHTML = '';
 
-    const { groups, hidden = [], hiddenPrefixes = [] } = this._getConfig();
-    const hiddenSet = new Set(hidden);
-    const styleLayers = this._map.getStyle()?.layers ?? [];
+    const { groups, hidden = [], hiddenPrefixes = [], sections = [] } = this._getConfig();
+    const hiddenSet     = new Set(hidden);
+    const styleLayers   = this._map.getStyle()?.layers ?? [];
     const styleLayerIds = new Set(styleLayers.map(l => l.id));
 
-    // Build layerId -> group lookup
+    // layerId → group
     const layerToGroup = new Map();
     for (const group of groups) {
-      for (const lid of group.layers) {
-        layerToGroup.set(lid, group);
-      }
+      for (const lid of group.layers) layerToGroup.set(lid, group);
     }
 
-    const renderedGroups = new Set();
+    // displayName → section name
+    const nameToSection = new Map();
+    for (const sec of sections) {
+      for (const entry of sec.entries) nameToSection.set(entry, sec.name);
+    }
+
+    // Build ordered display rows, preserving style layer order
+    const renderedGroups   = new Set();
+    const rows = []; // { displayName, present:string[], type:'group'|'single' }
 
     for (const layer of styleLayers) {
       if (hiddenSet.has(layer.id)) continue;
-      const group = layerToGroup.get(layer.id);
-      // Grouped layers bypass prefix-based hiding (explicit group = explicit opt-in)
-      if (!group && hiddenPrefixes.some(p => layer.id.startsWith(p))) continue;
+      if (!layerToGroup.has(layer.id) && hiddenPrefixes.some(p => layer.id.startsWith(p))) continue;
 
+      const group = layerToGroup.get(layer.id);
       if (group) {
-        if (!renderedGroups.has(group.displayName)) {
-          renderedGroups.add(group.displayName);
-          const presentLayers = group.layers.filter(id => styleLayerIds.has(id));
-          this._list.appendChild(this._makeGroupRow(group.displayName, presentLayers));
-        }
+        if (renderedGroups.has(group.displayName)) continue;
+        renderedGroups.add(group.displayName);
+        const present = group.layers.filter(id => styleLayerIds.has(id));
+        rows.push({ displayName: group.displayName, present, type: 'group' });
       } else {
-        this._list.appendChild(this._makeSingleRow(layer.id));
+        rows.push({ displayName: layer.id, present: [layer.id], type: 'single' });
+      }
+    }
+
+    if (sections.length > 0) {
+      this._renderSections(rows, sections, nameToSection);
+    } else {
+      for (const row of rows) {
+        this._list.appendChild(this._makeRowEl(row.displayName, row.present));
       }
     }
   }
 
-  _makeGroupRow(displayName, presentLayers) {
+  _renderSections(rows, sections, nameToSection) {
+    // Group rows by section
+    const sectionMap = new Map(); // sectionName → rows[]
+    const unsectioned = [];
+
+    for (const sec of sections) sectionMap.set(sec.name, []);
+
+    for (const row of rows) {
+      const sec = nameToSection.get(row.displayName);
+      if (sec && sectionMap.has(sec)) {
+        sectionMap.get(sec).push(row);
+      } else {
+        unsectioned.push(row);
+      }
+    }
+
+    for (const sec of sections) {
+      const secRows = sectionMap.get(sec.name);
+      if (secRows.length === 0) continue;
+      this._list.appendChild(this._makeSectionEl(sec.name, secRows));
+    }
+
+    for (const row of unsectioned) {
+      this._list.appendChild(this._makeRowEl(row.displayName, row.present));
+    }
+  }
+
+  _makeSectionEl(name, rows) {
+    const li = document.createElement('li');
+    li.className = 'layer-section';
+
+    const details = document.createElement('details');
+    details.open = true;
+
+    const summary = document.createElement('summary');
+    summary.className = 'section-header';
+    summary.textContent = name;
+
+    const ul = document.createElement('ul');
+    ul.className = 'section-items';
+    for (const row of rows) {
+      ul.appendChild(this._makeRowEl(row.displayName, row.present));
+    }
+
+    details.appendChild(summary);
+    details.appendChild(ul);
+    li.appendChild(details);
+    return li;
+  }
+
+  _makeRowEl(displayName, presentLayers) {
     const li = document.createElement('li');
 
     const cb = document.createElement('input');
@@ -106,31 +203,7 @@ export class LayerPanel {
     return li;
   }
 
-  _makeSingleRow(layerId) {
-    const li = document.createElement('li');
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.id = `layer-cb-${CSS.escape(layerId)}`;
-    cb.checked = true;
-
-    cb.addEventListener('change', () => {
-      if (cb.checked) {
-        if (this._removed.has(layerId)) this._showLayer(layerId);
-      } else {
-        if (!this._removed.has(layerId)) this._hideLayer(layerId);
-      }
-    });
-
-    const label = document.createElement('label');
-    label.htmlFor = cb.id;
-    label.textContent = layerId;
-    label.title = layerId;
-
-    li.appendChild(cb);
-    li.appendChild(label);
-    return li;
-  }
+  // ── Layer show/hide ───────────────────────────────────────────────────────
 
   _hideLayer(layerId) {
     const layers = this._map.getStyle()?.layers ?? [];

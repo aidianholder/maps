@@ -319,10 +319,83 @@ const AWS_GROUPS = [
 
 // ─── Exported config array ───────────────────────────────────────────────────
 
+const PROTO_SECTIONS = [
+  { name: 'Natural & Land', entries: ['parks', 'water', 'airports', 'building footprints'] },
+  { name: 'Roads & Transit', entries: [
+    'highways', 'major roads', 'minor roads', 'ramps/interchanges',
+    'service roads/alleys/etc', 'paths/trails', 'rail', 'one way arrows',
+  ]},
+  { name: 'Boundaries', entries: [
+    'boundaries: country', 'boundaries: state', 'boundaries: county', 'boundaries: city',
+  ]},
+  { name: 'Places & Labels', entries: [
+    'pois', 'neighborhoods', 'cities', 'towns', 'villages',
+    'labels: states', 'labels: country',
+    'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
+  ]},
+];
+
+const BRIGHT_SECTIONS = [
+  { name: 'Natural & Land', entries: [
+    'parks', 'woodland', 'grassland', 'ice/snow', 'wetlands', 'sand/beach',
+    'sports facilities', 'cemeteries', 'water', 'waterways', 'airports', 'building footprints',
+  ]},
+  { name: 'Roads & Transit', entries: [
+    'highways', 'major roads', 'secondary/tertiary roads', 'minor roads', 'ramps/interchanges',
+    'service roads/alleys/etc', 'paths/trails', 'rail', 'transit rail', 'one way arrows',
+  ]},
+  { name: 'Boundaries', entries: [
+    'boundaries: country', 'boundaries: state', 'boundaries: disputed',
+  ]},
+  { name: 'Places & Labels', entries: [
+    'points of interest', 'airport labels', 'neighborhoods', 'cities', 'towns', 'villages',
+    'labels: states', 'labels: country',
+    'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
+  ]},
+];
+
+const POSITRON_SECTIONS = [
+  { name: 'Natural & Land', entries: [
+    'parks', 'woodland', 'ice/glaciers', 'water', 'waterways', 'airports', 'building footprints',
+  ]},
+  { name: 'Roads & Transit', entries: [
+    'highways', 'major roads', 'minor roads', 'paths/trails', 'rail', 'transit rail',
+  ]},
+  { name: 'Boundaries', entries: [
+    'boundaries: country', 'boundaries: state', 'boundaries: disputed',
+  ]},
+  { name: 'Places & Labels', entries: [
+    'airport labels', 'neighborhoods', 'cities', 'towns', 'villages',
+    'labels: states', 'labels: country',
+    'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
+  ]},
+];
+
+const AWS_SECTIONS = [
+  { name: 'Natural & Land', entries: [
+    'parks/greenspace', 'reservations', 'beach/sand', 'ice/glaciers',
+    'water', 'waterways', 'ferry routes', 'airports', 'building footprints',
+  ]},
+  { name: 'Roads & Transit', entries: [
+    'highways', 'major roads', 'secondary/tertiary roads', 'minor roads',
+    'service roads/alleys/etc', 'paths/trails', 'rail', 'one way arrows',
+  ]},
+  { name: 'Boundaries', entries: [
+    'boundaries: country', 'boundaries: state', 'boundaries: disputed',
+  ]},
+  { name: 'Places & Labels', entries: [
+    'points of interest', 'labels: parks & areas', 'airport labels',
+    'cities', 'towns', 'villages',
+    'labels: states', 'labels: country',
+    'labels: water', 'labels: roads', 'highway shields',
+  ]},
+];
+
 export const STYLE_CONFIGS = [
   {
     test: style => 'protomaps' in (style.sources ?? {}),
     groups: PROTO_GROUPS,
+    sections: PROTO_SECTIONS,
     hidden: [
       'background', 'earth', 'landcover',
       'address_label', 'water_label_ocean', 'earth_label_islands',
@@ -335,6 +408,7 @@ export const STYLE_CONFIGS = [
     test: style => 'openmaptiles' in (style.sources ?? {}) &&
                    (style.layers ?? []).some(l => l.id === 'natural_earth'),
     groups: BRIGHT_GROUPS,
+    sections: BRIGHT_SECTIONS,
     hidden: [
       'background', 'natural_earth', 'road_area_pattern',
       'landuse_residential', 'landuse_hospital', 'landuse_school',
@@ -345,6 +419,7 @@ export const STYLE_CONFIGS = [
   {
     test: style => 'aws' in (style.sources ?? {}),
     groups: AWS_GROUPS,
+    sections: AWS_SECTIONS,
     hidden: [
       'land', 'landuse_urban', 'landuse_misc', 'landuse_desert',
       'admin_label_continent', 'building_label_number', 'road_label_service',
@@ -355,6 +430,7 @@ export const STYLE_CONFIGS = [
   {
     test: style => 'openmaptiles' in (style.sources ?? {}),
     groups: POSITRON_GROUPS,
+    sections: POSITRON_SECTIONS,
     hidden: [
       'background',
       'landuse_residential',

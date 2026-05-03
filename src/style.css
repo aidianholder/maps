@@ -8,6 +8,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+               'Helvetica Neue', Arial, sans-serif;
 }
 
 #app {
@@ -15,6 +17,8 @@ html, body {
   width: 100%;
   height: 100%;
 }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
 
 #sidebar {
   width: calc(100% / 3);
@@ -26,14 +30,64 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.2s ease, max-width 0.2s ease;
+  position: relative;
 }
 
-#map {
-  flex: 1;
+/* Collapsed state */
+#sidebar.collapsed {
+  width: 2em;
+  max-width: 2em;
+  cursor: pointer;
+}
+
+#sidebar.collapsed #layer-panel {
+  display: none;
+}
+
+#sidebar.collapsed #sidebar-tab {
+  display: flex;
+}
+
+/* ── Collapsed tab ───────────────────────────────────────────────────────── */
+
+#sidebar-tab {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
   height: 100%;
+  padding: 16px 0;
+  cursor: pointer;
+  user-select: none;
 }
 
-/* Layer panel */
+#sidebar-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-label {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #a0aec0;
+  text-transform: uppercase;
+}
+
+.tab-arrow {
+  font-size: 14px;
+  color: #63b3ed;
+  transform: rotate(90deg);
+  display: block;
+}
+
+/* ── Panel header ────────────────────────────────────────────────────────── */
+
 #layer-panel {
   display: flex;
   flex-direction: column;
@@ -41,65 +95,147 @@ html, body {
   overflow: hidden;
 }
 
-#layer-panel h2 {
-  padding: 16px 16px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #a0aec0;
+#panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
+
+#panel-header h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a0aec0;
+}
+
+#panel-close {
+  background: none;
+  border: none;
+  color: #718096;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+
+#panel-close:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Layer list ──────────────────────────────────────────────────────────── */
 
 #layer-list {
   list-style: none;
   overflow-y: auto;
   flex: 1;
-  padding: 6px 0;
+  padding: 4px 0 8px;
 }
 
-#layer-list::-webkit-scrollbar {
-  width: 4px;
-}
-#layer-list::-webkit-scrollbar-track {
-  background: transparent;
-}
+#layer-list::-webkit-scrollbar { width: 3px; }
+#layer-list::-webkit-scrollbar-track { background: transparent; }
 #layer-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 2px;
 }
 
-#layer-list li {
+/* Individual layer rows (top-level or inside sections) */
+#layer-list li:not(.layer-section) {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 16px;
-  cursor: pointer;
+  gap: 7px;
+  padding: 3px 14px;
 }
 
-#layer-list li:hover {
-  background: rgba(255, 255, 255, 0.05);
+#layer-list li:not(.layer-section):hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 #layer-list input[type="checkbox"] {
   flex-shrink: 0;
   accent-color: #63b3ed;
   cursor: pointer;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
 }
 
 #layer-list label {
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #e2e8f0;
+  color: #cbd5e0;
+  letter-spacing: 0.01em;
 }
 
-/* Style switcher control */
+/* ── Folder sections ─────────────────────────────────────────────────────── */
+
+.layer-section {
+  margin: 2px 0;
+}
+
+.layer-section details {
+  /* no extra styles needed */
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  padding: 5px 14px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #718096;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  gap: 6px;
+}
+
+/* Remove default <summary> triangle in all browsers */
+.section-header::-webkit-details-marker { display: none; }
+.section-header::marker { display: none; }
+
+/* Custom arrow via ::before */
+.section-header::before {
+  content: '▸';
+  font-size: 9px;
+  color: #4a5568;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+details[open] > .section-header::before {
+  transform: rotate(90deg);
+}
+
+.section-header:hover {
+  color: #a0aec0;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.section-items {
+  list-style: none;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  margin-left: 18px;
+}
+
+/* ── Style switcher control ──────────────────────────────────────────────── */
+
+#map {
+  flex: 1;
+  height: 100%;
+}
+
 .style-switcher-ctrl {
   position: relative;
 }
@@ -115,7 +251,6 @@ html, body {
   background-repeat: no-repeat;
   background-position: center;
   background-size: 70%;
-  /* layers icon — same SVG as the watergis package */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 54.849 54.849'%3E%3Cpath d='M54.497 39.614l-10.363-4.49-14.917 5.968c-.537.214-1.165.319-1.793.319-.627 0-1.254-.104-1.79-.318l-14.921-5.968L.351 39.614c-.472.203-.467.524.01.716L26.56 50.81c.477.191 1.251.191 1.729 0L54.488 40.33c.476-.191.481-.513.009-.716zM54.497 27.512l-10.364-4.491-14.916 5.966c-.536.215-1.165.321-1.792.321-.628 0-1.256-.106-1.793-.321l-14.918-5.966L.351 27.512c-.472.203-.467.523.01.716L26.56 38.706c.477.19 1.251.19 1.729 0l26.199-10.479c.476-.191.481-.511.009-.715zM.361 16.125l13.662 5.465 12.537 5.015c.477.191 1.251.191 1.729 0l12.541-5.016 13.658-5.463c.477-.191.48-.511.01-.716L28.277 4.048c-.471-.204-1.236-.204-1.708 0L.351 15.41c-.472.204-.467.525.01.715z'/%3E%3C/svg%3E");
 }
 
@@ -130,6 +265,7 @@ html, body {
   min-width: 110px;
   margin-bottom: 4px;
   overflow: hidden;
+  font-family: inherit;
 }
 
 .style-switcher-list button {
@@ -140,6 +276,7 @@ html, body {
   background: none;
   cursor: pointer;
   font-size: 13px;
+  font-family: inherit;
   text-align: left;
   white-space: nowrap;
 }
