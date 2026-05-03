@@ -5,6 +5,7 @@ import { StyleSwitcherControl } from './style-switcher.js';
 import { LayerPanel } from './layer-panel.js';
 import { STYLE_CONFIGS } from './style-groups.js';
 import { CustomExportControl } from './custom-export-control.js';
+import { LocatorPanel } from './locator-panel.js';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
 
@@ -50,3 +51,6 @@ map.addControl(
 
 const layerPanel = new LayerPanel(map, STYLE_CONFIGS);
 layerPanel.mount(document.getElementById('sidebar'));
+
+const locatorPanel = new LocatorPanel(map);
+locatorPanel.mount(document.getElementById('locator-root'));

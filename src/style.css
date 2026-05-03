@@ -229,6 +229,391 @@ details[open] > .section-header::before {
   margin-left: 18px;
 }
 
+/* ── Locator panel (right side) ──────────────────────────────────────────── */
+
+#locator-root {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  position: relative;
+}
+
+#locator-panel {
+  width: 230px;
+  height: 100%;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.25);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.lp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.lp-header h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a0aec0;
+}
+
+.lp-collapse-btn {
+  background: none;
+  border: none;
+  color: #718096;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.lp-collapse-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.08); }
+
+/* Controls */
+.lp-controls {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.lp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-row label {
+  font-size: 11px;
+  color: #718096;
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.lp-select {
+  flex: 1;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.lp-select option { background: #1a1a2e; }
+
+.lp-size-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lp-size-input {
+  width: 52px;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  text-align: center;
+  font-family: inherit;
+}
+
+.lp-unit {
+  font-size: 11px;
+  color: #718096;
+}
+
+/* Style grid */
+.lp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.lp-grid::-webkit-scrollbar { width: 3px; }
+.lp-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+.lp-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.lp-cell:hover {
+  background: rgba(99,179,237,0.12);
+  border-color: rgba(99,179,237,0.3);
+}
+
+/* Collapsed tab */
+#locator-tab {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 2em;
+  height: 100%;
+  padding: 16px 0;
+  background: #1a1a2e;
+  cursor: pointer;
+  color: #a0aec0;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.25);
+}
+#locator-tab:hover { background: #232340; }
+
+.lt-label {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lt-arrow {
+  font-size: 14px;
+  color: #63b3ed;
+}
+
+/* ── Locator markers ─────────────────────────────────────────────────────── */
+
+/* Base marker wrapper — no pointer events on the wrapper; children manage it */
+.lm {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;   /* marker drag handled by maplibre */
+  position: relative;
+}
+
+/* The label box */
+.lm-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  cursor: grab;
+  pointer-events: auto;
+  position: relative;
+  min-width: 48px;
+  user-select: none;
+}
+.lm-body:active { cursor: grabbing; }
+.lm.lm-dragging,
+.lm.lm-dragging .lm-body,
+.lm.lm-dragging .lm-text { cursor: grabbing !important; user-select: none; }
+
+/* Dark theme (reference style) */
+.lm-dark .lm-body {
+  background: #1a1a1a;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+
+/* White theme */
+.lm-white .lm-body {
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+/* Plain theme */
+.lm-plain .lm-body {
+  background: transparent;
+  color: #1a1a1a;
+  text-shadow: 0 1px 3px rgba(255,255,255,0.9), 0 -1px 3px rgba(255,255,255,0.9),
+               1px 0 3px rgba(255,255,255,0.9), -1px 0 3px rgba(255,255,255,0.9);
+  font-weight: 700;
+  cursor: grab;
+}
+
+/* Editable text span */
+.lm-text {
+  outline: none;
+  min-width: 24px;
+  display: inline-block;
+  cursor: text;
+  pointer-events: auto;
+  line-height: 1.3;
+}
+
+.lm-text:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Delete button — shows on hover/selected */
+.lm-del {
+  display: none;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  line-height: 1;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+.lm-dark.lm-selected .lm-del,
+.lm-dark:hover .lm-del { display: flex; color: rgba(255,255,255,0.6); }
+.lm-white.lm-selected .lm-del,
+.lm-white:hover .lm-del { display: flex; color: rgba(0,0,0,0.45); }
+.lm-plain.lm-selected .lm-del,
+.lm-plain:hover .lm-del { display: flex; color: rgba(0,0,0,0.5); }
+.lm-del:hover { color: #fc8181 !important; }
+
+/* Selected outline */
+.lm.lm-selected .lm-body {
+  outline: 2px solid #63b3ed;
+  outline-offset: 2px;
+}
+
+/* ── Tail arrows ────────────────────────────────────────────────────────── */
+
+/* Common arrow element: a flex row that positions the triangle */
+.lm-arrow {
+  width: 100%;
+  display: flex;
+  pointer-events: none;
+}
+
+/* Tail-down: triangle points DOWN, box appears above */
+.lm-tail-down .lm-arrow {
+  justify-content: center;  /* center by default */
+  margin-top: -1px;
+}
+.lm-tail-down.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; }
+.lm-tail-down.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; }
+
+.lm-tail-down .lm-arrow::after {
+  content: '';
+  display: block;
+  width: 0; height: 0;
+  border-left:  9px solid transparent;
+  border-right: 9px solid transparent;
+}
+.lm-dark.lm-tail-down  .lm-arrow::after { border-top: 11px solid #1a1a1a; }
+.lm-white.lm-tail-down .lm-arrow::after { border-top: 11px solid #ffffff; }
+
+/* Tail-up: triangle points UP, box appears below */
+.lm-tail-up .lm-arrow {
+  justify-content: center;
+  margin-bottom: -1px;
+  order: -1;   /* arrow rendered before body in DOM */
+}
+.lm-tail-up.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; }
+.lm-tail-up.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; }
+
+.lm-tail-up .lm-arrow::after {
+  content: '';
+  display: block;
+  width: 0; height: 0;
+  border-left:  9px solid transparent;
+  border-right: 9px solid transparent;
+}
+.lm-dark.lm-tail-up  .lm-arrow::after { border-bottom: 11px solid #1a1a1a; }
+.lm-white.lm-tail-up .lm-arrow::after { border-bottom: 11px solid #ffffff; }
+
+/* ── Line callout theme (no box, thin shaft instead of triangle) ─────────── */
+
+.lm-line .lm-body {
+  background: transparent;
+  color: #1a1a1a;
+  box-shadow: none;
+  border: none;
+  padding: 3px 6px;
+}
+
+.lm-line .lm-text {
+  font-weight: 700;
+  /* White halo for readability over the map */
+  text-shadow:
+    0 0 3px rgba(255,255,255,0.95),
+    0 0 6px rgba(255,255,255,0.8),
+     1px  1px 0 rgba(255,255,255,0.9),
+    -1px -1px 0 rgba(255,255,255,0.9),
+     1px -1px 0 rgba(255,255,255,0.9),
+    -1px  1px 0 rgba(255,255,255,0.9);
+}
+
+/* Shaft: thin vertical line replacing the triangle */
+.lm-line.lm-tail-down .lm-arrow::after,
+.lm-line.lm-tail-up   .lm-arrow::after {
+  content: '';
+  display: block;
+  width: 1.5px;
+  height: 22px;
+  background: #333333;
+  /* Reset all bubble border rules */
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+}
+
+/* Shaft alignment mirrors bubble tail positions */
+.lm-line.lm-tail-down .lm-arrow { margin-top: -1px; }
+.lm-line.lm-tail-up   .lm-arrow { margin-bottom: -1px; }
+
+.lm-line.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; }
+.lm-line.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; }
+
+/* Selection outline */
+.lm-line.lm-selected .lm-body {
+  outline: 2px solid #63b3ed;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Delete button */
+.lm-line.lm-selected .lm-del,
+.lm-line:hover       .lm-del { display: flex; color: rgba(0,0,0,0.5); }
+
+/* Thumbnail overrides (in the panel grid) */
+.lm.lm-thumb {
+  transform: scale(0.8);
+  transform-origin: center;
+  pointer-events: none;
+  user-select: none;
+}
+.lm-thumb .lm-body {
+  padding: 3px 7px;
+  font-size: 10px !important;
+  cursor: default;
+}
+.lm-thumb .lm-del { display: none !important; }
+
 /* ── Style switcher control ──────────────────────────────────────────────── */
 
 #map {

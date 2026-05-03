@@ -44,27 +44,230 @@ class MapGenerator extends MapGeneratorBase {
   }
 
   getRenderedMap(container, style) {
-    const m = new maplibregl.Map({
+    return new maplibregl.Map({
       container,
       style,
-      center: this.map.getCenter(),
-      zoom: this.map.getZoom(),
+      center:  this.map.getCenter(),
+      zoom:    this.map.getZoom(),
       bearing: this.map.getBearing(),
-      pitch: this.map.getPitch(),
+      pitch:   this.map.getPitch(),
       preserveDrawingBuffer: true,
       fadeDuration: 0,
       attributionControl: false,
     });
-    m.on('load',  () => console.log('[export] hidden map: load'));
-    m.on('idle',  () => console.log('[export] hidden map: idle'));
-    m.on('error', (e) => console.error('[export] hidden map error:', e?.error?.message, e?.error));
-    return m;
   }
+
+  // Return empty collection → skips the default red-circle marker path entirely.
+  getMarkers() {
+    return document.createElement('div').getElementsByClassName('__no_match__');
+  }
+
+  // Suppress north arrow and attribution on the exported map.
+  addNorthIconToMap(_map) { return Promise.resolve(); }
+  addAttributions(_map)   { return false; }
 
   renderMapPost(map) {
     const terrain = this.map.getTerrain?.();
     if (terrain) map.setTerrain(terrain);
+
+    // Wrap map.getCanvas() so that every call (from toPDF / toPNG / etc.)
+    // returns a 2D composite canvas with locator labels painted on top.
+    const origGetCanvas = map.getCanvas.bind(map);
+    const self = this;
+    map.getCanvas = function () {
+      const webgl = origGetCanvas();
+      return self._compositeLocators(webgl, map);
+    };
+
     return map;
+  }
+
+  // ── Locator compositing ─────────────────────────────────────────────────────
+
+  _compositeLocators(webglCanvas, hiddenMap) {
+    // Find all live locator labels in the original map's overlay
+    const els = Array.from(
+      this.map.getCanvasContainer().querySelectorAll('.lm:not(.lm-thumb)')
+    );
+
+    // Nothing to draw — return the raw WebGL canvas unchanged
+    if (els.length === 0) return webglCanvas;
+
+    const composite = document.createElement('canvas');
+    composite.width  = webglCanvas.width;
+    composite.height = webglCanvas.height;
+    const ctx = composite.getContext('2d');
+
+    // Base map
+    ctx.drawImage(webglCanvas, 0, 0);
+
+    // Scale from CSS px → canvas px (accounts for DPI multiplier)
+    const cssW  = hiddenMap.getContainer().offsetWidth;
+    const scale = webglCanvas.width / (cssW || 1);
+
+    for (const el of els) {
+      // MapLibre writes the anchor position as translate(Xpx, Ypx) on the element
+      const elStyle = el.getAttribute('style') || '';
+      const m = elStyle.match(/translate\(([^,]+)px,\s*([^,]+)px\)/);
+      if (!m) continue;
+
+      const origX = parseFloat(m[1]);
+      const origY = parseFloat(m[2]);
+
+      // Convert from original-map screen coords → lng/lat → hidden-map screen coords
+      const lngLat    = this.map.unproject([origX, origY]);
+      const hiddenPt  = hiddenMap.project(lngLat);
+      const cx = hiddenPt.x * scale;
+      const cy = hiddenPt.y * scale;
+
+      // Read style info from the live element
+      const bodyEl    = el.querySelector('.lm-body');
+      const textEl    = el.querySelector('.lm-text');
+      const text      = textEl?.textContent?.trim() ?? '';
+      if (!text) continue;
+
+      const fontFamily = bodyEl?.style.fontFamily || '"Inter", sans-serif';
+      const fontSize   = (parseFloat(bodyEl?.style.fontSize) || 14) * scale;
+
+      this._drawLocatorLabel(ctx, cx, cy, text, {
+        fontFamily,
+        fontSize,
+        scale,
+        isDark:    el.classList.contains('lm-dark'),
+        isWhite:   el.classList.contains('lm-white'),
+        isPlain:   el.classList.contains('lm-plain'),
+        isLine:    el.classList.contains('lm-line'),
+        tailDown:  el.classList.contains('lm-tail-down'),
+        tailUp:    el.classList.contains('lm-tail-up'),
+        posLeft:   el.classList.contains('lm-pos-left'),
+        posRight:  el.classList.contains('lm-pos-right'),
+      });
+    }
+
+    return composite;
+  }
+
+  _drawLocatorLabel(ctx, anchorX, anchorY, text, opts) {
+    const { fontFamily, fontSize, scale, isDark, isWhite, isPlain, isLine,
+            tailDown, tailUp, posLeft, posRight } = opts;
+
+    const padX   = 10 * scale;
+    const padY   =  5 * scale;
+    const tailH  = 11 * scale;
+    const tailHW =  9 * scale;   // half-width of tail base
+    const radius =  5 * scale;
+
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    const textW = ctx.measureText(text).width;
+    const boxW  = textW + padX * 2;
+    const boxH  = fontSize + padY * 2;
+
+    // Determine box top-left position based on anchor type
+    let boxX, boxY;
+    if (tailDown) {
+      // anchor = bottom → tail tip is at anchor; box sits above
+      boxX = anchorX - boxW / 2;
+      boxY = anchorY - tailH - boxH;
+      if (posLeft)  boxX = anchorX - 14 * scale;
+      if (posRight) boxX = anchorX - boxW + 14 * scale;
+    } else if (tailUp) {
+      // anchor = top → tail tip is at anchor; box sits below
+      boxX = anchorX - boxW / 2;
+      boxY = anchorY + tailH;
+      if (posLeft)  boxX = anchorX - 14 * scale;
+      if (posRight) boxX = anchorX - boxW + 14 * scale;
+    } else {
+      // plain / center anchor
+      boxX = anchorX - boxW / 2;
+      boxY = anchorY - boxH / 2;
+    }
+
+    if (isPlain) {
+      // Plain text with white halo
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth    = 3 * scale;
+      ctx.strokeStyle  = 'rgba(255,255,255,0.92)';
+      ctx.strokeText(text, boxX + padX, boxY + boxH / 2);
+      ctx.fillStyle    = '#1a1a1a';
+      ctx.fillText(text, boxX + padX, boxY + boxH / 2);
+      return;
+    }
+
+    if (isLine) {
+      const shaftH  = 22 * scale;
+      const shaftW  = 1.5 * scale;
+      const shaftColor = '#333333';
+
+      // Shaft x-position within the element matches CSS pos rules (14px offset)
+      const shaftX = posLeft  ? boxX + 14 * scale - shaftW / 2
+                   : posRight ? boxX + boxW - 14 * scale - shaftW / 2
+                              : anchorX - shaftW / 2; // center
+
+      // Draw shaft line
+      ctx.fillStyle = shaftColor;
+      if (tailDown) {
+        ctx.fillRect(shaftX, boxY + boxH, shaftW, shaftH);
+      } else if (tailUp) {
+        ctx.fillRect(shaftX, boxY - shaftH, shaftW, shaftH);
+      }
+
+      // Draw text with white halo
+      ctx.font         = `bold ${fontSize}px ${fontFamily}`;
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth    = Math.max(2, 3 * scale);
+      ctx.strokeStyle  = 'rgba(255,255,255,0.95)';
+      ctx.strokeText(text, boxX + padX, boxY + boxH / 2);
+      ctx.fillStyle    = '#1a1a1a';
+      ctx.fillText(text, boxX + padX, boxY + boxH / 2);
+      return;
+    }
+
+    const bgColor   = isDark  ? '#1a1a1a' : '#ffffff';
+    const textColor = isDark  ? '#ffffff' : '#1a1a1a';
+
+    // ── Draw rounded box ───────────────────────────────────────────────────
+    ctx.fillStyle = bgColor;
+    this._roundRect(ctx, boxX, boxY, boxW, boxH, radius);
+    ctx.fill();
+
+    // ── Draw tail ──────────────────────────────────────────────────────────
+    if (tailDown || tailUp) {
+      const tailBaseX = posLeft  ? boxX + 14 * scale
+                      : posRight ? boxX + boxW - 14 * scale
+                                 : anchorX;
+      ctx.fillStyle = bgColor;
+      ctx.beginPath();
+      if (tailDown) {
+        ctx.moveTo(tailBaseX - tailHW, boxY + boxH);
+        ctx.lineTo(tailBaseX + tailHW, boxY + boxH);
+        ctx.lineTo(anchorX, anchorY);
+      } else {
+        ctx.moveTo(tailBaseX - tailHW, boxY);
+        ctx.lineTo(tailBaseX + tailHW, boxY);
+        ctx.lineTo(anchorX, anchorY);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // ── Draw text ──────────────────────────────────────────────────────────
+    ctx.fillStyle    = textColor;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, boxX + padX, boxY + boxH / 2);
+  }
+
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y,     x + w, y + r,     r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x,     y + h, x,     y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x,     y,     x + r, y,         r);
+    ctx.closePath();
   }
 }
 
