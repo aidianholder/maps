@@ -44,17 +44,50 @@ class MapGenerator extends MapGeneratorBase {
   }
 
   getRenderedMap(container, style) {
-    return new maplibregl.Map({
+    const visMap = this.map;
+    const visW   = visMap.getContainer().offsetWidth  || 1;
+    const visH   = visMap.getContainer().offsetHeight || 1;
+
+    // Compute the overlay rectangle's geographic bounds so the hidden map can
+    // render exactly what the preview shows — no zoom arithmetic needed.
+    const expCssW   = (96 / 25.4) * this.width;
+    const expCssH   = (96 / 25.4) * this.height;
+    const overlaySc = Math.min(1, visW / expCssW, visH / expCssH);
+    const rW = expCssW * overlaySc;
+    const rH = expCssH * overlaySc;
+    const rx = (visW - rW) / 2;
+    const ry = (visH - rH) / 2;
+
+    // Unproject all four corners of the overlay rectangle
+    const sw = visMap.unproject([rx,      ry + rH]);  // bottom-left
+    const ne = visMap.unproject([rx + rW, ry      ]);  // top-right
+
+    const hiddenMap = new maplibregl.Map({
       container,
       style,
-      center:  this.map.getCenter(),
-      zoom:    this.map.getZoom(),
-      bearing: this.map.getBearing(),
-      pitch:   this.map.getPitch(),
+      center:  visMap.getCenter(),
+      zoom:    visMap.getZoom(),
+      bearing: visMap.getBearing(),
+      pitch:   visMap.getPitch(),
       preserveDrawingBuffer: true,
       fadeDuration: 0,
       attributionControl: false,
     });
+
+    // Once the hidden map loads, snap it to exactly the overlay bounds.
+    // This listener fires before MapGeneratorBase's own 'load' handler because
+    // it is registered first (getRenderedMap is called before generate() attaches
+    // its listener), so fitBounds runs synchronously before idle is awaited.
+    hiddenMap.once('load', () => {
+      hiddenMap.fitBounds([sw, ne], {
+        padding:  0,
+        animate:  false,
+        bearing:  visMap.getBearing(),
+        pitch:    visMap.getPitch(),
+      });
+    });
+
+    return hiddenMap;
   }
 
   // Return empty collection → skips the default red-circle marker path entirely.
