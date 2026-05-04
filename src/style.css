@@ -522,8 +522,8 @@ details[open] > .section-header::before {
   content: '';
   display: block;
   width: 0; height: 0;
-  border-left:  9px solid transparent;
-  border-right: 9px solid transparent;
+  border-left:  4.5px solid transparent;
+  border-right: 4.5px solid transparent;
 }
 .lm-dark.lm-tail-down  .lm-arrow::after { border-top: 11px solid #1a1a1a; }
 .lm-white.lm-tail-down .lm-arrow::after { border-top: 11px solid #ffffff; }
@@ -541,8 +541,8 @@ details[open] > .section-header::before {
   content: '';
   display: block;
   width: 0; height: 0;
-  border-left:  9px solid transparent;
-  border-right: 9px solid transparent;
+  border-left:  4.5px solid transparent;
+  border-right: 4.5px solid transparent;
 }
 .lm-dark.lm-tail-up  .lm-arrow::after { border-bottom: 11px solid #1a1a1a; }
 .lm-white.lm-tail-up .lm-arrow::after { border-bottom: 11px solid #ffffff; }

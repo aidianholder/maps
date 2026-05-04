@@ -257,6 +257,10 @@ export class LocatorPanel {
     .setLngLat(center)
     .addTo(this._map);
 
+    // Store lng/lat as data attributes for reliable export
+    el.setAttribute('data-lng', center.lng.toString());
+    el.setAttribute('data-lat', center.lat.toString());
+
     const entry = { marker, el, style, font: this._font, size: this._size };
     this._markers.push(entry);
 
@@ -293,9 +297,10 @@ export class LocatorPanel {
           el.classList.add('lm-dragging');
         }
         if (dragging) {
-          marker.setLngLat(
-            this._map.unproject([startProject.x + dx, startProject.y + dy])
-          );
+          const newLngLat = this._map.unproject([startProject.x + dx, startProject.y + dy]);
+          marker.setLngLat(newLngLat);
+          el.setAttribute('data-lng', newLngLat.lng.toString());
+          el.setAttribute('data-lat', newLngLat.lat.toString());
         }
       };
 

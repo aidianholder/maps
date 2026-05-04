@@ -118,10 +118,11 @@ class MapGenerator extends MapGeneratorBase {
   // ── Locator compositing ─────────────────────────────────────────────────────
 
   _compositeLocators(webglCanvas, hiddenMap) {
-    // Find all live locator labels in the original map's overlay
+    // Find all live locator labels in the original map
     const els = Array.from(
-      this.map.getCanvasContainer().querySelectorAll('.lm:not(.lm-thumb)')
-    );
+      document.querySelectorAll('.lm:not(.lm-thumb)')
+    ).filter(el => this.map.getContainer().contains(el));
+    console.log('Found', els.length, 'locators');
 
     // Nothing to draw — return the raw WebGL canvas unchanged
     if (els.length === 0) return webglCanvas;
@@ -139,16 +140,49 @@ class MapGenerator extends MapGeneratorBase {
     const scale = webglCanvas.width / (cssW || 1);
 
     for (const el of els) {
-      // MapLibre writes the anchor position as translate(Xpx, Ypx) on the element
-      const elStyle = el.getAttribute('style') || '';
-      const m = elStyle.match(/translate\(([^,]+)px,\s*([^,]+)px\)/);
-      if (!m) continue;
+      let lngLat;
 
-      const origX = parseFloat(m[1]);
-      const origY = parseFloat(m[2]);
+      // 1. Try reading lng/lat from data attributes (most reliable)
+      const dataLng = el.getAttribute('data-lng');
+      const dataLat = el.getAttribute('data-lat');
+
+      if (dataLng && dataLat) {
+        lngLat = new maplibregl.LngLat(parseFloat(dataLng), parseFloat(dataLat));
+      } else {
+        // 2. Fallback to parsing CSS transforms (for markers not created by LocatorPanel)
+        const elStyle = el.getAttribute('style') || '';
+        const m = elStyle.match(/translate(?:3d)?\(([^,]+)px,\s*([^,]+)px/);
+        
+        let origX, origY;
+
+        if (m) {
+          origX = parseFloat(m[1]);
+          origY = parseFloat(m[2]);
+        } else {
+          const transform = window.getComputedStyle(el).transform;
+          if (transform && transform !== 'none') {
+            const parts = transform.match(/^matrix(?:3d)?\((.+)\)$/);
+            if (parts) {
+              const values = parts[1].split(', ');
+              if (values.length === 6) {
+                origX = parseFloat(values[4]);
+                origY = parseFloat(values[5]);
+              } else if (values.length === 16) {
+                origX = parseFloat(values[12]);
+                origY = parseFloat(values[13]);
+              }
+            }
+          }
+        }
+
+        if (origX !== undefined && origY !== undefined) {
+          lngLat = this.map.unproject([origX, origY]);
+        }
+      }
+
+      if (!lngLat) continue;
 
       // Convert from original-map screen coords → lng/lat → hidden-map screen coords
-      const lngLat    = this.map.unproject([origX, origY]);
       const hiddenPt  = hiddenMap.project(lngLat);
       const cx = hiddenPt.x * scale;
       const cy = hiddenPt.y * scale;
@@ -187,7 +221,7 @@ class MapGenerator extends MapGeneratorBase {
     const padX   = 10 * scale;
     const padY   =  5 * scale;
     const tailH  = 11 * scale;
-    const tailHW =  9 * scale;   // half-width of tail base
+    const tailHW =  4.5 * scale;   // half-width of tail base
     const radius =  5 * scale;
 
     ctx.font = `${fontSize}px ${fontFamily}`;
