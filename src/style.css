@@ -403,13 +403,15 @@ details[open] > .section-header::before {
 
 /* ── Locator markers ─────────────────────────────────────────────────────── */
 
-/* Base marker wrapper — no pointer events on the wrapper; children manage it */
+/* Base marker wrapper.
+   Live markers also carry .maplibregl-marker which sets position:absolute;top:0;left:0.
+   Do NOT set position here — overriding that with position:relative would take the
+   element out of absolute positioning and corrupt MapLibre's transform calculations. */
 .lm {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   pointer-events: none;   /* marker drag handled by maplibre */
-  position: relative;
 }
 
 /* The label box */
