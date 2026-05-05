@@ -109,7 +109,8 @@ class MapGenerator extends MapGeneratorBase {
     const self = this;
     map.getCanvas = function () {
       const webgl = origGetCanvas();
-      return self._compositeLocators(webgl, map);
+      const withLocators = self._compositeLocators(webgl, map);
+      return self._compositeIcons(withLocators, map);
     };
 
     return map;
@@ -122,7 +123,6 @@ class MapGenerator extends MapGeneratorBase {
     const els = Array.from(
       document.querySelectorAll('.lm:not(.lm-thumb)')
     ).filter(el => this.map.getContainer().contains(el));
-    console.log('Found', els.length, 'locators');
 
     // Nothing to draw — return the raw WebGL canvas unchanged
     if (els.length === 0) return webglCanvas;
@@ -209,6 +209,57 @@ class MapGenerator extends MapGeneratorBase {
         posLeft:   el.classList.contains('lm-pos-left'),
         posRight:  el.classList.contains('lm-pos-right'),
       });
+    }
+
+    return composite;
+  }
+
+  _compositeIcons(baseCanvas, hiddenMap) {
+    // Find all live icons in the original map
+    const els = Array.from(
+      document.querySelectorAll('.map-icon')
+    ).filter(el => this.map.getContainer().contains(el));
+
+    if (els.length === 0) return baseCanvas;
+
+    const composite = document.createElement('canvas');
+    composite.width  = baseCanvas.width;
+    composite.height = baseCanvas.height;
+    const ctx = composite.getContext('2d');
+
+    // Base map (including locators if already painted)
+    ctx.drawImage(baseCanvas, 0, 0);
+
+    // Scale from CSS px → canvas px (accounts for DPI multiplier)
+    const cssW  = hiddenMap.getContainer().offsetWidth;
+    const scale = baseCanvas.width / (cssW || 1);
+
+    for (const el of els) {
+      const dataLng = el.getAttribute('data-lng');
+      const dataLat = el.getAttribute('data-lat');
+      if (!dataLng || !dataLat) continue;
+
+      const lngLat = new maplibregl.LngLat(parseFloat(dataLng), parseFloat(dataLat));
+      
+      // PROJECT USING THE ACTUAL HIDDEN MAP RENDERED FOR EXPORT
+      const hiddenPt = hiddenMap.project(lngLat);
+      const cx = hiddenPt.x * scale;
+      const cy = hiddenPt.y * scale;
+
+      const imgEl = el.querySelector('img');
+      // If the image in the DOM is not complete, we can't draw it synchronously.
+      // But since they were already visible on the main map, they should be loaded.
+      if (!imgEl || !imgEl.complete) continue;
+
+      const iconSize = 15 * scale;
+      
+      ctx.save();
+      // Draw a small white halo for readability
+      ctx.shadowColor = 'white';
+      ctx.shadowBlur = 2 * scale;
+      // Draw centered on the projected point
+      ctx.drawImage(imgEl, cx - iconSize / 2, cy - iconSize / 2, iconSize, iconSize);
+      ctx.restore();
     }
 
     return composite;

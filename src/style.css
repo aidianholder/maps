@@ -616,6 +616,165 @@ details[open] > .section-header::before {
 }
 .lm-thumb .lm-del { display: none !important; }
 
+/* ── Icons panel (right side) ────────────────────────────────────────────── */
+
+#icons-root {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  position: relative;
+}
+
+#icons-panel {
+  width: 230px;
+  height: 100%;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.25);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+.ip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.ip-header h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a0aec0;
+}
+
+.ip-collapse-btn {
+  background: none;
+  border: none;
+  color: #718096;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.ip-collapse-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.08); }
+
+.ip-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.ip-grid::-webkit-scrollbar { width: 3px; }
+.ip-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+.ip-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ip-cell:hover {
+  background: rgba(99,179,237,0.12);
+  border-color: rgba(99,179,237,0.3);
+}
+
+.ip-thumb {
+  width: 20px;
+  height: 20px;
+  filter: invert(1);
+}
+
+/* Collapsed tab */
+#icons-tab {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 2em;
+  height: 100%;
+  padding: 16px 0;
+  background: #1a1a2e;
+  cursor: pointer;
+  color: #a0aec0;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.25);
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+#icons-tab:hover { background: #232340; }
+
+.it-label {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.it-arrow {
+  font-size: 14px;
+  color: #63b3ed;
+}
+
+/* ── Icon markers ────────────────────────────────────────────────────────── */
+
+.map-icon {
+  cursor: grab;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-icon:active {
+  cursor: grabbing;
+}
+
+.map-icon img {
+  display: block;
+  filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));
+}
+
+.mi-del {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #fc8181;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  display: none;
+}
+
+.map-icon:hover .mi-del {
+  display: block;
+}
+
 /* ── Style switcher control ──────────────────────────────────────────────── */
 
 #map {

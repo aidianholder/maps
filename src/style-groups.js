@@ -428,6 +428,19 @@ export const STYLE_CONFIGS = [
     hiddenPrefixes: [],
   },
   {
+    // Newsprint: same layer structure as Positron, identified by its name field
+    test: style => style.name === 'newsprint',
+    groups: POSITRON_GROUPS,
+    sections: POSITRON_SECTIONS,
+    hidden: [
+      'background',
+      'landuse_residential',
+      'road_area_pier', 'road_pier',
+      'highway-name-path',
+    ],
+    hiddenPrefixes: [],
+  },
+  {
     test: style => 'openmaptiles' in (style.sources ?? {}),
     groups: POSITRON_GROUPS,
     sections: POSITRON_SECTIONS,

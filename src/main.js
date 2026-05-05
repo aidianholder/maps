@@ -6,6 +6,7 @@ import { LayerPanel } from './layer-panel.js';
 import { STYLE_CONFIGS } from './style-groups.js';
 import { CustomExportControl } from './custom-export-control.js';
 import { LocatorPanel } from './locator-panel.js';
+import { IconsPanel } from './icons-panel.js';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
 
@@ -18,6 +19,7 @@ const STYLES = [
   { title: 'Bright',    uri: '/styles/osmbright.json' },
   { title: 'Positron',  uri: '/styles/positron.json' },
   { title: 'AWS',       uri: '/styles/aws.json' },
+  { title: 'Newsprint', uri: '/styles/newsprint.json' },
 ];
 
 const DEFAULT_STYLE = 'Proto';
@@ -54,3 +56,6 @@ layerPanel.mount(document.getElementById('sidebar'));
 
 const locatorPanel = new LocatorPanel(map);
 locatorPanel.mount(document.getElementById('locator-root'));
+
+const iconsPanel = new IconsPanel(map);
+iconsPanel.mount(document.getElementById('icons-root'));
