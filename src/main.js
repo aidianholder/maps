@@ -15,14 +15,14 @@ const protocol = new Protocol();
 maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol));
 
 const STYLES = [
-  { title: 'Proto',     uri: '/styles/protostyle2.json' },
-  { title: 'Bright',    uri: '/styles/osmbright.json' },
-  { title: 'Positron',  uri: '/styles/positron.json' },
-  { title: 'AWS',       uri: '/styles/aws.json' },
   { title: 'Newsprint', uri: '/styles/newsprint.json' },
+  { title: 'AWS',       uri: '/styles/aws.json' },
+  { title: 'Proto',     uri: '/styles/protostyle2.json' },
+  { title: 'Positron',  uri: '/styles/positron.json' },
+  { title: 'Bright',    uri: '/styles/osmbright.json' },
 ];
 
-const DEFAULT_STYLE = 'Proto';
+const DEFAULT_STYLE = 'Newsprint';
 
 // Little Rock, Arkansas
 const CENTER = [-92.2896, 34.7465];

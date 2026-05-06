@@ -515,8 +515,8 @@ details[open] > .section-header::before {
   justify-content: center;  /* center by default */
   margin-top: -1px;
 }
-.lm-tail-down.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; }
-.lm-tail-down.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; }
+.lm-tail-down.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; margin-left: -18.5px; }
+.lm-tail-down.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; margin-right: -18.5px; }
 
 .lm-tail-down .lm-arrow::after {
   content: '';
@@ -534,8 +534,8 @@ details[open] > .section-header::before {
   margin-bottom: -1px;
   order: -1;   /* arrow rendered before body in DOM */
 }
-.lm-tail-up.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; }
-.lm-tail-up.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; }
+.lm-tail-up.lm-pos-left  .lm-arrow { justify-content: flex-start; padding-left: 14px; margin-left: -18.5px; }
+.lm-tail-up.lm-pos-right .lm-arrow { justify-content: flex-end;   padding-right: 14px; margin-right: -18.5px; }
 
 .lm-tail-up .lm-arrow::after {
   content: '';

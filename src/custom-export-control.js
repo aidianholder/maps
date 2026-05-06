@@ -290,14 +290,14 @@ class MapGenerator extends MapGeneratorBase {
       // anchor = bottom → tail tip is at anchor; box sits above
       boxX = anchorX - boxW / 2;
       boxY = anchorY - tailH - boxH;
-      if (posLeft)  boxX = anchorX - 14 * scale;
-      if (posRight) boxX = anchorX - boxW + 14 * scale;
+      if (posLeft)  boxX = anchorX - 18.5 * scale;
+      if (posRight) boxX = anchorX - boxW + 18.5 * scale;
     } else if (tailUp) {
       // anchor = top → tail tip is at anchor; box sits below
       boxX = anchorX - boxW / 2;
       boxY = anchorY + tailH;
-      if (posLeft)  boxX = anchorX - 14 * scale;
-      if (posRight) boxX = anchorX - boxW + 14 * scale;
+      if (posLeft)  boxX = anchorX - 18.5 * scale;
+      if (posRight) boxX = anchorX - boxW + 18.5 * scale;
     } else {
       // plain / center anchor
       boxX = anchorX - boxW / 2;
@@ -320,9 +320,9 @@ class MapGenerator extends MapGeneratorBase {
       const shaftW  = 1.5 * scale;
       const shaftColor = '#333333';
 
-      // Shaft x-position within the element matches CSS pos rules (14px offset)
-      const shaftX = posLeft  ? boxX + 14 * scale - shaftW / 2
-                   : posRight ? boxX + boxW - 14 * scale - shaftW / 2
+      // Shaft x-position within the element matches CSS pos rules (18.5px offset)
+      const shaftX = posLeft  ? boxX + 18.5 * scale - shaftW / 2
+                   : posRight ? boxX + boxW - 18.5 * scale - shaftW / 2
                               : anchorX - shaftW / 2; // center
 
       // Draw shaft line
@@ -354,8 +354,8 @@ class MapGenerator extends MapGeneratorBase {
 
     // ── Draw tail ──────────────────────────────────────────────────────────
     if (tailDown || tailUp) {
-      const tailBaseX = posLeft  ? boxX + 14 * scale
-                      : posRight ? boxX + boxW - 14 * scale
+      const tailBaseX = posLeft  ? boxX + 18.5 * scale
+                      : posRight ? boxX + boxW - 18.5 * scale
                                  : anchorX;
       ctx.fillStyle = bgColor;
       ctx.beginPath();

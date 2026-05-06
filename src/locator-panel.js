@@ -32,30 +32,44 @@ function loadFont(value) {
 // Pre-load all fonts on startup
 FONTS.forEach(f => loadFont(f.value));
 
+// ─── Anchor → CSS pre-transform (mirrors MapLibre's internal `gs` object) ────────
+// Applied BEFORE the translate(x,y) so the anchor point sits on the coordinate.
+const ANCHOR_TRANSFORMS = {
+  center:         'translate(-50%,-50%)',
+  top:            'translate(-50%,0)',
+  'top-left':     'translate(0,0)',
+  'top-right':    'translate(-100%,0)',
+  bottom:         'translate(-50%,-100%)',
+  'bottom-left':  'translate(0,-100%)',
+  'bottom-right': 'translate(-100%,-100%)',
+  left:           'translate(0,-50%)',
+  right:          'translate(-100%,-50%)',
+};
+
 // ─── Marker style definitions ──────────────────────────────────────────────────
 
 const STYLES = [
   // ── Dark bubble (white text on black) ────────────────────────────────────
-  { id: 'dark-down-left',    theme: 'dark',  tail: 'down', pos: 'left',   anchor: 'bottom' },
+  { id: 'dark-down-left',    theme: 'dark',  tail: 'down', pos: 'left',   anchor: 'bottom-left', offset: [18.5, 0] },
   { id: 'dark-down-center',  theme: 'dark',  tail: 'down', pos: 'center', anchor: 'bottom' },
-  { id: 'dark-down-right',   theme: 'dark',  tail: 'down', pos: 'right',  anchor: 'bottom' },
-  { id: 'dark-up-left',      theme: 'dark',  tail: 'up',   pos: 'left',   anchor: 'top' },
+  { id: 'dark-down-right',   theme: 'dark',  tail: 'down', pos: 'right',  anchor: 'bottom-right', offset: [-18.5, 0] },
+  { id: 'dark-up-left',      theme: 'dark',  tail: 'up',   pos: 'left',   anchor: 'top-left',    offset: [18.5, 0] },
   { id: 'dark-up-center',    theme: 'dark',  tail: 'up',   pos: 'center', anchor: 'top' },
-  { id: 'dark-up-right',     theme: 'dark',  tail: 'up',   pos: 'right',  anchor: 'top' },
+  { id: 'dark-up-right',     theme: 'dark',  tail: 'up',   pos: 'right',  anchor: 'top-right',   offset: [-18.5, 0] },
   // ── White bubble (black text on white) ───────────────────────────────────
-  { id: 'white-down-left',   theme: 'white', tail: 'down', pos: 'left',   anchor: 'bottom' },
+  { id: 'white-down-left',   theme: 'white', tail: 'down', pos: 'left',   anchor: 'bottom-left', offset: [18.5, 0] },
   { id: 'white-down-center', theme: 'white', tail: 'down', pos: 'center', anchor: 'bottom' },
-  { id: 'white-down-right',  theme: 'white', tail: 'down', pos: 'right',  anchor: 'bottom' },
-  { id: 'white-up-left',     theme: 'white', tail: 'up',   pos: 'left',   anchor: 'top' },
+  { id: 'white-down-right',  theme: 'white', tail: 'down', pos: 'right',  anchor: 'bottom-right', offset: [-18.5, 0] },
+  { id: 'white-up-left',     theme: 'white', tail: 'up',   pos: 'left',   anchor: 'top-left',    offset: [18.5, 0] },
   { id: 'white-up-center',   theme: 'white', tail: 'up',   pos: 'center', anchor: 'top' },
-  { id: 'white-up-right',    theme: 'white', tail: 'up',   pos: 'right',  anchor: 'top' },
+  { id: 'white-up-right',    theme: 'white', tail: 'up',   pos: 'right',  anchor: 'top-right',   offset: [-18.5, 0] },
   // ── Line callout (no box, thin leader line) ───────────────────────────────
-  { id: 'line-down-left',    theme: 'line',  tail: 'down', pos: 'left',   anchor: 'bottom' },
+  { id: 'line-down-left',    theme: 'line',  tail: 'down', pos: 'left',   anchor: 'bottom-left', offset: [18.5, 0] },
   { id: 'line-down-center',  theme: 'line',  tail: 'down', pos: 'center', anchor: 'bottom' },
-  { id: 'line-down-right',   theme: 'line',  tail: 'down', pos: 'right',  anchor: 'bottom' },
-  { id: 'line-up-left',      theme: 'line',  tail: 'up',   pos: 'left',   anchor: 'top' },
+  { id: 'line-down-right',   theme: 'line',  tail: 'down', pos: 'right',  anchor: 'bottom-right', offset: [-18.5, 0] },
+  { id: 'line-up-left',      theme: 'line',  tail: 'up',   pos: 'left',   anchor: 'top-left',    offset: [18.5, 0] },
   { id: 'line-up-center',    theme: 'line',  tail: 'up',   pos: 'center', anchor: 'top' },
-  { id: 'line-up-right',     theme: 'line',  tail: 'up',   pos: 'right',  anchor: 'top' },
+  { id: 'line-up-right',     theme: 'line',  tail: 'up',   pos: 'right',  anchor: 'top-right',   offset: [-18.5, 0] },
 ];
 
 // ─── Build marker element ──────────────────────────────────────────────────────
@@ -252,17 +266,27 @@ export class LocatorPanel {
     const marker = new maplibregl.Marker({
       element: el,
       anchor: style.anchor,
+      offset: style.offset || [0, 0],
       draggable: false,
     })
     .setLngLat(center)
     .addTo(this._map);
 
-    // Store lng/lat as data attributes for reliable export
+    // ── Override MapLibre's async _update chain ────────────────────────────
+    // MapLibre's _update schedules secondary updates via frameAsync → once('render'),
+    // creating a race condition that fights with our syncPositions.  We disable it
+    // and take direct, synchronous control of the CSS transform instead.
+    marker._update = () => {};
+
+    // Store lng/lat as data attributes for reliable export & syncPositions
     el.setAttribute('data-lng', center.lng.toString());
     el.setAttribute('data-lat', center.lat.toString());
 
     const entry = { marker, el, style, font: this._font, size: this._size };
     this._markers.push(entry);
+
+    // Apply initial transform directly (bypass MapLibre's now-disabled _update)
+    this._applyTransform(el, style, center.lng, center.lat);
 
     // ── Delete button ──────────────────────────────────────────────────────
     el.querySelector('.lm-del').addEventListener('click', (e) => {
@@ -298,9 +322,13 @@ export class LocatorPanel {
         }
         if (dragging) {
           const newLngLat = this._map.unproject([startProject.x + dx, startProject.y + dy]);
-          marker.setLngLat(newLngLat);
+          // Update geographic coordinate on the marker object (for getLngLat() callers)
+          marker._lngLat = newLngLat;
+          // Store in data attributes (export compositor reads these)
           el.setAttribute('data-lng', newLngLat.lng.toString());
           el.setAttribute('data-lat', newLngLat.lat.toString());
+          // Set transform directly — no async _update chain
+          this._applyTransform(el, style, newLngLat.lng, newLngLat.lat);
         }
       };
 
@@ -308,6 +336,9 @@ export class LocatorPanel {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup',   onUp);
         el.classList.remove('lm-dragging');
+
+        // Force a map-level move event to trigger syncAllMarkers
+        this._map.fire('move');
 
         if (!dragging) {
           // It was a tap/click — focus text for editing if pointer stayed on text
@@ -391,16 +422,30 @@ export class LocatorPanel {
   }
 
   /**
-   * Re-sync all locator positions based on their data-lng/data-lat attributes.
-   * This ensures they stay anchored even if MapLibre's internal state drifts.
+   * Re-project all markers from their stored lng/lat to screen coords and set
+   * the CSS transform directly.  Called on every map move/zoom event so markers
+   * stay locked to their geographic coordinates without relying on MapLibre's
+   * async _update chain.
    */
   syncPositions() {
-    this._markers.forEach(({ marker, el }) => {
-      const lng = el.getAttribute('data-lng');
-      const lat = el.getAttribute('data-lat');
-      if (lng && lat) {
-        marker.setLngLat([parseFloat(lng), parseFloat(lat)]);
+    for (const { el, style } of this._markers) {
+      const lng = parseFloat(el.getAttribute('data-lng'));
+      const lat = parseFloat(el.getAttribute('data-lat'));
+      if (!isNaN(lng) && !isNaN(lat)) {
+        this._applyTransform(el, style, lng, lat);
       }
-    });
+    }
+  }
+
+  /**
+   * Directly set the marker element's CSS transform based on current map projection.
+   * Mirrors MapLibre's internal formula: anchorOffset + translate(projectedX, projectedY).
+   */
+  _applyTransform(el, style, lng, lat) {
+    const pt      = this._map.project([lng, lat]);
+    const off     = style.offset || [0, 0];
+    const prefix  = ANCHOR_TRANSFORMS[style.anchor] || 'translate(-50%,-100%)';
+    el.style.transform =
+      `${prefix} translate(${pt.x + off[0]}px,${pt.y + off[1]}px) rotateX(0deg) rotateZ(0deg)`;
   }
 }

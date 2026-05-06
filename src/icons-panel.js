@@ -102,6 +102,8 @@ export class IconsPanel {
       const lngLat = marker.getLngLat();
       el.setAttribute('data-lng', lngLat.lng.toString());
       el.setAttribute('data-lat', lngLat.lat.toString());
+      // Force a map-level move event to trigger syncAllMarkers
+      this._map.fire('move');
     });
 
     this._icons.push({ marker, el, iconName });
