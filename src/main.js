@@ -59,3 +59,12 @@ locatorPanel.mount(document.getElementById('locator-root'));
 
 const iconsPanel = new IconsPanel(map);
 iconsPanel.mount(document.getElementById('icons-root'));
+
+// Global sync for markers on map move/zoom to prevent drift
+const syncAllMarkers = () => {
+  locatorPanel.syncPositions();
+  iconsPanel.syncPositions();
+};
+
+map.on('move', syncAllMarkers);
+map.on('zoom', syncAllMarkers);

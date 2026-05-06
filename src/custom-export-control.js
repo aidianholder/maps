@@ -136,8 +136,10 @@ class MapGenerator extends MapGeneratorBase {
     ctx.drawImage(webglCanvas, 0, 0);
 
     // Scale from CSS px → canvas px (accounts for DPI multiplier)
-    const cssW  = hiddenMap.getContainer().offsetWidth;
-    const scale = webglCanvas.width / (cssW || 1);
+    // We use the container dimensions of the hidden map to determine the scale.
+    // If offsetWidth is 0, we fallback to the original map's width or the canvas width.
+    const cssW  = hiddenMap.getContainer().offsetWidth || this.map.getContainer().offsetWidth || (webglCanvas.width / window.devicePixelRatio);
+    const scale = webglCanvas.width / cssW;
 
     for (const el of els) {
       let lngLat;
@@ -231,8 +233,10 @@ class MapGenerator extends MapGeneratorBase {
     ctx.drawImage(baseCanvas, 0, 0);
 
     // Scale from CSS px → canvas px (accounts for DPI multiplier)
-    const cssW  = hiddenMap.getContainer().offsetWidth;
-    const scale = baseCanvas.width / (cssW || 1);
+    // We use the container dimensions of the hidden map to determine the scale.
+    // If offsetWidth is 0, we fallback to the original map's width or the canvas width.
+    const cssW  = hiddenMap.getContainer().offsetWidth || this.map.getContainer().offsetWidth || (baseCanvas.width / window.devicePixelRatio);
+    const scale = baseCanvas.width / cssW;
 
     for (const el of els) {
       const dataLng = el.getAttribute('data-lng');

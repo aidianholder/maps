@@ -389,4 +389,18 @@ export class LocatorPanel {
     this._tab.style.display = 'none';
     this._tab.parentElement.style.width = '';
   }
+
+  /**
+   * Re-sync all locator positions based on their data-lng/data-lat attributes.
+   * This ensures they stay anchored even if MapLibre's internal state drifts.
+   */
+  syncPositions() {
+    this._markers.forEach(({ marker, el }) => {
+      const lng = el.getAttribute('data-lng');
+      const lat = el.getAttribute('data-lat');
+      if (lng && lat) {
+        marker.setLngLat([parseFloat(lng), parseFloat(lat)]);
+      }
+    });
+  }
 }

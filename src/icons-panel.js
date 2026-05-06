@@ -66,6 +66,8 @@ export class IconsPanel {
     const el = document.createElement('div');
     el.className = 'map-icon';
     el.dataset.icon = iconName;
+    el.style.width = `${ICON_SIZE}px`;
+    el.style.height = `${ICON_SIZE}px`;
     
     const img = document.createElement('img');
     img.src = `/icons/${iconName}-${ICON_SIZE}.svg`;
@@ -103,6 +105,20 @@ export class IconsPanel {
     });
 
     this._icons.push({ marker, el, iconName });
+  }
+
+  /**
+   * Re-sync all icon positions based on their data-lng/data-lat attributes.
+   * This ensures they stay anchored even if MapLibre's internal state drifts.
+   */
+  syncPositions() {
+    this._icons.forEach(({ marker, el }) => {
+      const lng = el.getAttribute('data-lng');
+      const lat = el.getAttribute('data-lat');
+      if (lng && lat) {
+        marker.setLngLat([parseFloat(lng), parseFloat(lat)]);
+      }
+    });
   }
 
   _collapse() {
