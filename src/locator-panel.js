@@ -135,8 +135,9 @@ export class LocatorPanel {
     this._map = map;
     this._markers = [];          // { marker, el, style }
     this._activeEl = null;       // currently-selected marker element
-    this._font = FONTS[0].value; // default font
-    this._size = 14;             // default px
+    this._font  = FONTS[0].value; // default font
+    this._size  = 14;             // default px
+    this._align = 'left';         // default text alignment
   }
 
   mount(container) {
@@ -212,8 +213,38 @@ export class LocatorPanel {
     sizeRow.appendChild(sizeLabel);
     sizeRow.appendChild(sizeWrap);
 
+    // Text alignment
+    const alignRow = document.createElement('div');
+    alignRow.className = 'lp-row';
+    const alignLabel = document.createElement('label');
+    alignLabel.textContent = 'Align';
+
+    const alignWrap = document.createElement('div');
+    alignWrap.className = 'lp-align-wrap';
+
+    this._alignBtns = {};
+    for (const [val, label] of [['left', 'L'], ['center', 'C'], ['right', 'R']]) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = label;
+      btn.className = 'lp-align-btn' + (val === this._align ? ' lp-align-active' : '');
+      btn.title = `Align ${val}`;
+      btn.addEventListener('click', () => {
+        this._align = val;
+        Object.values(this._alignBtns).forEach(b => b.classList.remove('lp-align-active'));
+        btn.classList.add('lp-align-active');
+        this._updateActive();
+      });
+      alignWrap.appendChild(btn);
+      this._alignBtns[val] = btn;
+    }
+
+    alignRow.appendChild(alignLabel);
+    alignRow.appendChild(alignWrap);
+
     controls.appendChild(fontRow);
     controls.appendChild(sizeRow);
+    controls.appendChild(alignRow);
 
     // ── Style grid ───────────────────────────────────────────────
     const grid = document.createElement('div');
@@ -386,8 +417,14 @@ export class LocatorPanel {
     this._activeEl = el;
     el.classList.add('lm-selected');
 
-    // Sync controls to this marker's settings
-    // (future: update font/size selectors to reflect this marker)
+    // Sync alignment buttons to this marker's current alignment
+    if (this._alignBtns) {
+      const align = el.querySelector('.lm-text')?.dataset?.align || 'left';
+      this._align = align;
+      Object.entries(this._alignBtns).forEach(([val, btn]) => {
+        btn.classList.toggle('lp-align-active', val === align);
+      });
+    }
   }
 
   _deselect() {
@@ -397,14 +434,19 @@ export class LocatorPanel {
     }
   }
 
-  // Update font/size on currently-selected marker
+  // Update font/size/alignment on currently-selected marker
   _updateActive() {
     if (!this._activeEl) return;
-    const body = this._activeEl.querySelector('.lm-body');
+    const body   = this._activeEl.querySelector('.lm-body');
+    const textEl = this._activeEl.querySelector('.lm-text');
     if (!body) return;
     const displayFont = this._font.replace(/\+/g, ' ');
-    body.style.fontFamily = `"${displayFont}", sans-serif`;
-    body.style.fontSize = `${this._size}px`;
+    body.style.fontFamily    = `"${displayFont}", sans-serif`;
+    body.style.fontSize      = `${this._size}px`;
+    if (textEl) {
+      textEl.style.textAlign = this._align;
+      textEl.dataset.align   = this._align;
+    }
   }
 
   // ── Collapse / expand ────────────────────────────────────────────────────────

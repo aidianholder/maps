@@ -339,6 +339,27 @@ details[open] > .section-header::before {
   color: #718096;
 }
 
+.lp-align-wrap {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.lp-align-btn {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  color: #718096;
+  cursor: pointer;
+  font-family: inherit;
+}
+.lp-align-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+.lp-align-active    { background: rgba(255,255,255,0.18) !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.3) !important; }
+
 /* Style grid */
 .lp-grid {
   display: grid;

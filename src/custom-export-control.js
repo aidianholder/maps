@@ -192,16 +192,19 @@ class MapGenerator extends MapGeneratorBase {
       // Read style info from the live element
       const bodyEl    = el.querySelector('.lm-body');
       const textEl    = el.querySelector('.lm-text');
-      const text      = textEl?.textContent?.trim() ?? '';
+      // innerText preserves <br> as \n; textContent collapses them
+      const text      = (textEl?.innerText ?? '').trim();
       if (!text) continue;
 
       const fontFamily = bodyEl?.style.fontFamily || '"Inter", sans-serif';
       const fontSize   = (parseFloat(bodyEl?.style.fontSize) || 14) * scale;
+      const textAlign  = textEl?.dataset?.align || 'left';
 
       this._drawLocatorLabel(ctx, cx, cy, text, {
         fontFamily,
         fontSize,
         scale,
+        textAlign,
         isDark:    el.classList.contains('lm-dark'),
         isWhite:   el.classList.contains('lm-white'),
         isPlain:   el.classList.contains('lm-plain'),
@@ -270,93 +273,105 @@ class MapGenerator extends MapGeneratorBase {
   }
 
   _drawLocatorLabel(ctx, anchorX, anchorY, text, opts) {
-    const { fontFamily, fontSize, scale, isDark, isWhite, isPlain, isLine,
-            tailDown, tailUp, posLeft, posRight } = opts;
+    const { fontFamily, fontSize, scale, isDark, isPlain, isLine,
+            tailDown, tailUp, posLeft, posRight, textAlign = 'left' } = opts;
 
     const padX   = 10 * scale;
     const padY   =  5 * scale;
     const tailH  = 11 * scale;
-    const tailHW =  4.5 * scale;   // half-width of tail base
+    const tailHW =  4.5 * scale;
     const radius =  5 * scale;
+    const lineH  = fontSize * 1.3;
+
+    const lines = text.split('\n');
 
     ctx.font = `${fontSize}px ${fontFamily}`;
-    const textW = ctx.measureText(text).width;
-    const boxW  = textW + padX * 2;
-    const boxH  = fontSize + padY * 2;
+    const maxLineW = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const boxW = maxLineW + padX * 2;
+    const boxH = lines.length * lineH + padY * 2;
 
-    // Determine box top-left position based on anchor type
+    // Box top-left based on anchor type
     let boxX, boxY;
     if (tailDown) {
-      // anchor = bottom → tail tip is at anchor; box sits above
       boxX = anchorX - boxW / 2;
       boxY = anchorY - tailH - boxH;
       if (posLeft)  boxX = anchorX - 18.5 * scale;
       if (posRight) boxX = anchorX - boxW + 18.5 * scale;
     } else if (tailUp) {
-      // anchor = top → tail tip is at anchor; box sits below
       boxX = anchorX - boxW / 2;
       boxY = anchorY + tailH;
       if (posLeft)  boxX = anchorX - 18.5 * scale;
       if (posRight) boxX = anchorX - boxW + 18.5 * scale;
     } else {
-      // plain / center anchor
       boxX = anchorX - boxW / 2;
       boxY = anchorY - boxH / 2;
     }
 
-    if (isPlain) {
-      // Plain text with white halo
+    // Helpers to draw all lines respecting alignment
+    const lineX = (i) => {
+      if (textAlign === 'center') return boxX + boxW / 2;
+      if (textAlign === 'right')  return boxX + boxW - padX;
+      return boxX + padX;
+    };
+    const lineY = (i) => boxY + padY + (i + 0.5) * lineH;
+
+    const setAlign = () => {
       ctx.textBaseline = 'middle';
-      ctx.lineWidth    = 3 * scale;
-      ctx.strokeStyle  = 'rgba(255,255,255,0.92)';
-      ctx.strokeText(text, boxX + padX, boxY + boxH / 2);
-      ctx.fillStyle    = '#1a1a1a';
-      ctx.fillText(text, boxX + padX, boxY + boxH / 2);
+      ctx.textAlign    = (textAlign === 'center' || textAlign === 'right') ? textAlign : 'left';
+    };
+
+    const fillLines = (font) => {
+      ctx.font = font;
+      setAlign();
+      lines.forEach((l, i) => ctx.fillText(l, lineX(i), lineY(i)));
+    };
+    const strokeLines = (font) => {
+      ctx.font = font;
+      setAlign();
+      lines.forEach((l, i) => ctx.strokeText(l, lineX(i), lineY(i)));
+    };
+
+    if (isPlain) {
+      ctx.lineWidth   = 3 * scale;
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      strokeLines(`${fontSize}px ${fontFamily}`);
+      ctx.fillStyle   = '#1a1a1a';
+      fillLines(`${fontSize}px ${fontFamily}`);
       return;
     }
 
     if (isLine) {
-      const shaftH  = 22 * scale;
-      const shaftW  = 1.5 * scale;
-      const shaftColor = '#333333';
+      const shaftH    = 22 * scale;
+      const shaftW    = 1.5 * scale;
+      const shaftX    = posLeft  ? boxX + 18.5 * scale - shaftW / 2
+                      : posRight ? boxX + boxW - 18.5 * scale - shaftW / 2
+                      :            anchorX - shaftW / 2;
+      ctx.fillStyle = '#333333';
+      if (tailDown) ctx.fillRect(shaftX, boxY + boxH, shaftW, shaftH);
+      else if (tailUp) ctx.fillRect(shaftX, boxY - shaftH, shaftW, shaftH);
 
-      // Shaft x-position within the element matches CSS pos rules (18.5px offset)
-      const shaftX = posLeft  ? boxX + 18.5 * scale - shaftW / 2
-                   : posRight ? boxX + boxW - 18.5 * scale - shaftW / 2
-                              : anchorX - shaftW / 2; // center
-
-      // Draw shaft line
-      ctx.fillStyle = shaftColor;
-      if (tailDown) {
-        ctx.fillRect(shaftX, boxY + boxH, shaftW, shaftH);
-      } else if (tailUp) {
-        ctx.fillRect(shaftX, boxY - shaftH, shaftW, shaftH);
-      }
-
-      // Draw text with white halo
-      ctx.font         = `bold ${fontSize}px ${fontFamily}`;
-      ctx.textBaseline = 'middle';
-      ctx.lineWidth    = Math.max(2, 3 * scale);
-      ctx.strokeStyle  = 'rgba(255,255,255,0.95)';
-      ctx.strokeText(text, boxX + padX, boxY + boxH / 2);
-      ctx.fillStyle    = '#1a1a1a';
-      ctx.fillText(text, boxX + padX, boxY + boxH / 2);
+      const boldFont = `bold ${fontSize}px ${fontFamily}`;
+      ctx.lineWidth   = Math.max(2, 3 * scale);
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      strokeLines(boldFont);
+      ctx.fillStyle   = '#1a1a1a';
+      fillLines(boldFont);
       return;
     }
 
-    const bgColor   = isDark  ? '#1a1a1a' : '#ffffff';
-    const textColor = isDark  ? '#ffffff' : '#1a1a1a';
+    const bgColor   = isDark ? '#1a1a1a' : '#ffffff';
+    const textColor = isDark ? '#ffffff'  : '#1a1a1a';
 
-    // ── Draw rounded box ───────────────────────────────────────────────────
+    // ── Rounded box ────────────────────────────────────────────────────────
     ctx.fillStyle = bgColor;
     this._roundRect(ctx, boxX, boxY, boxW, boxH, radius);
     ctx.fill();
 
-    // ── Draw tail ──────────────────────────────────────────────────────────
+    // ── Tail ───────────────────────────────────────────────────────────────
     if (tailDown || tailUp) {
       const tailBaseX = posLeft  ? boxX + 18.5 * scale
                       : posRight ? boxX + boxW - 18.5 * scale
-                                 : anchorX;
+                      :            anchorX;
       ctx.fillStyle = bgColor;
       ctx.beginPath();
       if (tailDown) {
@@ -372,10 +387,9 @@ class MapGenerator extends MapGeneratorBase {
       ctx.fill();
     }
 
-    // ── Draw text ──────────────────────────────────────────────────────────
-    ctx.fillStyle    = textColor;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, boxX + padX, boxY + boxH / 2);
+    // ── Text ───────────────────────────────────────────────────────────────
+    ctx.fillStyle = textColor;
+    fillLines(`${fontSize}px ${fontFamily}`);
   }
 
   _roundRect(ctx, x, y, w, h, r) {
