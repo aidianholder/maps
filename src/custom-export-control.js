@@ -713,13 +713,17 @@ export class CustomExportControl {
       'width:60px; font-size:12px; padding:3px 4px; border:1px solid #ccc; border-radius:3px;';
 
     this._customW = document.createElement('input');
-    this._customW.type = 'number'; this._customW.min = 10;
-    this._customW.max = 5000; this._customW.value = 279;
+    this._customW.type = 'number';
+    this._customW.setAttribute('min',   '10');
+    this._customW.setAttribute('max',   '5000');
+    this._customW.setAttribute('value', '279');   // sets defaultValue → spinner uses this as base
     this._customW.style.cssText = numStyle;
 
     this._customH = document.createElement('input');
-    this._customH.type = 'number'; this._customH.min = 10;
-    this._customH.max = 5000; this._customH.value = 216;
+    this._customH.type = 'number';
+    this._customH.setAttribute('min',   '10');
+    this._customH.setAttribute('max',   '5000');
+    this._customH.setAttribute('value', '216');   // sets defaultValue → spinner uses this as base
     this._customH.style.cssText = numStyle;
 
     const x = document.createElement('span');
