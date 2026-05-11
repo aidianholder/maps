@@ -4986,7 +4986,8 @@
         "text-font": ["Amazon Ember Condensed RC Regular,Noto Sans Regular"],
         "text-line-height": 1,
         "text-offset": [0, 1.5],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "hsl(213, 10%, 39%)",
@@ -5069,7 +5070,8 @@
         ],
         "text-line-height": 1,
         "text-offset": [0, 1.5],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": [
@@ -5132,7 +5134,8 @@
         "text-font": ["Amazon Ember Condensed RC Regular,Noto Sans Regular"],
         "text-line-height": 1,
         "text-offset": [0, 1.5],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "hsl(213, 10%, 39%)",
@@ -5259,7 +5262,8 @@
         "text-font": ["Amazon Ember Condensed RC Regular,Noto Sans Regular"],
         "text-line-height": 1,
         "text-offset": [0, 1.5],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "none"
       },
       "paint": {
         "text-color": "hsl(213, 10%, 39%)",
@@ -6026,7 +6030,8 @@
         "text-line-height": 1,
         "text-max-width": 4,
         "text-padding": 40,
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": [
@@ -6097,7 +6102,8 @@
         "text-font": ["Amazon Ember Condensed RC Bold,Noto Sans Bold"],
         "text-line-height": 1,
         "text-offset": [0, 1.5],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": [
@@ -6143,14 +6149,7 @@
         [
           "match",
           ["get", "kind"],
-          [
-            "hospital",
-            "university",
-            "commercial",
-            "industrial",
-            "harbour",
-            "military"
-          ],
+          ["hospital", "university", "industrial", "harbour", "military"],
           true,
           false
         ],
@@ -6175,7 +6174,8 @@
         "text-font": ["Amazon Ember Condensed RC Bold,Noto Sans Bold"],
         "text-line-height": 1,
         "text-offset": [0, 1.5],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 16, 11],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": [
@@ -8774,7 +8774,8 @@
           8,
           18
         ],
-        "text-transform": "uppercase"
+        "text-transform": "uppercase",
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "hsl(60, 1%, 52%)",
@@ -8838,7 +8839,8 @@
         "text-max-width": 8,
         "text-padding": 100,
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 15, 15],
-        "text-transform": "uppercase"
+        "text-transform": "uppercase",
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "hsl(0, 2%, 50%)",
@@ -8924,7 +8926,8 @@
           12,
           16,
           16
-        ]
+        ],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "hsl(206, 20%, 41%)",
