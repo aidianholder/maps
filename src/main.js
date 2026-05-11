@@ -42,8 +42,8 @@ map.addControl(new StyleSwitcherControl(STYLES, DEFAULT_STYLE), 'bottom-left');
 
 map.addControl(
   new CustomExportControl({
-    PageSize: 'LETTER',
-    PageOrientation: 'Landscape',
+    PageSize: 'A6',
+    PageOrientation: 'Portrait',
     Format: 'PDF',
     DPI: 150,
     Filename: 'map-export',

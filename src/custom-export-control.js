@@ -456,11 +456,6 @@ export class CustomExportControl {
       e.stopPropagation();
       const opening = this._panel.style.display !== 'block';
       this._panel.style.display = opening ? 'block' : 'none';
-      if (opening) {
-        this._showOverlay();
-      } else {
-        this._hideOverlay();
-      }
     });
 
     // Floating panel
@@ -476,7 +471,7 @@ export class CustomExportControl {
     this._container.appendChild(this._btn);
     this._container.appendChild(this._panel);
 
-    // Close panel + hide overlay on outside click
+    // Close panel on outside click (overlay stays visible)
     this._outsideClick = (e) => {
       if (this._suppressNextOutsideClick) {
         this._suppressNextOutsideClick = false;
@@ -484,13 +479,17 @@ export class CustomExportControl {
       }
       if (!this._container.contains(e.target)) {
         this._panel.style.display = 'none';
-        this._hideOverlay();
       }
     };
     document.addEventListener('click', this._outsideClick);
 
-    // Build the SVG overlay (hidden until panel opens)
+    // Build the SVG overlay; show once the map has rendered so dimensions are ready
     this._createOverlay();
+    if (this._map.loaded()) {
+      this._showOverlay();
+    } else {
+      this._map.once('load', () => this._showOverlay());
+    }
 
     // Keep overlay in sync with map resizes
     this._onResize = () => { if (this._overlayVisible) this._updateOverlay(); };
@@ -836,7 +835,6 @@ export class CustomExportControl {
 
   _generate() {
     this._panel.style.display = 'none';
-    this._hideOverlay();
 
     const format = this._panel.querySelector('#mapbox-gl-export-format-type').value;
     const dpi    = Number(this._panel.querySelector('#mapbox-gl-export-dpi-type').value);
