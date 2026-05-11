@@ -478,6 +478,10 @@ export class CustomExportControl {
 
     // Close panel + hide overlay on outside click
     this._outsideClick = (e) => {
+      if (this._suppressNextOutsideClick) {
+        this._suppressNextOutsideClick = false;
+        return;
+      }
       if (!this._container.contains(e.target)) {
         this._panel.style.display = 'none';
         this._hideOverlay();
@@ -499,6 +503,9 @@ export class CustomExportControl {
     document.removeEventListener('click', this._outsideClick);
     this._map.off('resize', this._onResize);
     this._overlay?.remove();
+    for (const el of Object.values(this._handleEls ?? {})) el.remove();
+    document.removeEventListener('mousemove', this._onMouseMove);
+    document.removeEventListener('mouseup',   this._onMouseUp);
     this._container.parentNode?.removeChild(this._container);
     this._map = undefined;
   }
@@ -554,17 +561,42 @@ export class CustomExportControl {
     mapContainer.appendChild(svg);
     this._overlay = svg;
     this._overlayVisible = false;
+
+    // Corner drag handles (HTML divs so pointer-events work through the SVG)
+    const CURSORS = { nw: 'nw-resize', ne: 'ne-resize', se: 'se-resize', sw: 'sw-resize' };
+    this._handleEls = {};
+    for (const [corner, cursor] of Object.entries(CURSORS)) {
+      const div = document.createElement('div');
+      div.style.cssText =
+        'position:absolute; width:14px; height:14px; border-radius:50%; ' +
+        'background:white; border:1.5px solid rgba(0,0,0,0.4); ' +
+        'transform:translate(-50%,-50%); z-index:4; display:none; ' +
+        `cursor:${cursor};`;
+      div.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this._dragStart(e, corner);
+      });
+      mapContainer.appendChild(div);
+      this._handleEls[corner] = div;
+    }
+
+    this._dragState = null;
+    this._onMouseMove = (e) => this._dragMove(e);
+    this._onMouseUp   = ()  => this._dragEnd();
   }
 
   _showOverlay() {
     this._overlayVisible = true;
     this._overlay.style.display = '';
+    for (const el of Object.values(this._handleEls)) el.style.display = '';
     this._updateOverlay();
   }
 
   _hideOverlay() {
     this._overlayVisible = false;
     this._overlay.style.display = 'none';
+    for (const el of Object.values(this._handleEls)) el.style.display = 'none';
   }
 
   _updateOverlay() {
@@ -600,6 +632,84 @@ export class CustomExportControl {
     this._sizeLabel.textContent = labelText;
     this._sizeLabel.setAttribute('x', x + rectW / 2);
     this._sizeLabel.setAttribute('y', y + rectH - 14);
+
+    this._updateHandlePositions(x, y, rectW, rectH);
+  }
+
+  _updateHandlePositions(x, y, rectW, rectH) {
+    const pos = {
+      nw: [x,          y],
+      ne: [x + rectW,  y],
+      se: [x + rectW,  y + rectH],
+      sw: [x,          y + rectH],
+    };
+    for (const [id, [hx, hy]] of Object.entries(pos)) {
+      const el = this._handleEls[id];
+      el.style.left = `${hx}px`;
+      el.style.top  = `${hy}px`;
+    }
+  }
+
+  _dragStart(e, corner) {
+    const mapContainer = this._map.getContainer();
+    // Switch to custom mode so the current drag dimensions are used for export
+    if (this._sizeSelect && this._sizeSelect.value !== CUSTOM_KEY) {
+      this._sizeSelect.value = CUSTOM_KEY;
+      if (this._orientRow) this._orientRow.style.display = 'none';
+    }
+    this._dragState = { corner, containerRect: mapContainer.getBoundingClientRect() };
+    document.addEventListener('mousemove', this._onMouseMove);
+    document.addEventListener('mouseup',   this._onMouseUp);
+  }
+
+  _dragMove(e) {
+    if (!this._dragState) return;
+    const mapContainer = this._map.getContainer();
+    const vw = mapContainer.offsetWidth;
+    const vh = mapContainer.offsetHeight;
+    const cr = this._dragState.containerRect;
+
+    const mouseX = Math.max(0, Math.min(vw, e.clientX - cr.left));
+    const mouseY = Math.max(0, Math.min(vh, e.clientY - cr.top));
+
+    const cx = vw / 2;
+    const cy = vh / 2;
+    const MIN_HALF = 20;
+    const halfW = Math.max(MIN_HALF, Math.abs(mouseX - cx));
+    const halfH = Math.max(MIN_HALF, Math.abs(mouseY - cy));
+
+    const rectW = halfW * 2;
+    const rectH = halfH * 2;
+    const x = cx - halfW;
+    const y = cy - halfH;
+
+    for (const el of [this._maskHole, this._borderRect]) {
+      el.setAttribute('x',      x);
+      el.setAttribute('y',      y);
+      el.setAttribute('width',  rectW);
+      el.setAttribute('height', rectH);
+    }
+    this._updateHandlePositions(x, y, rectW, rectH);
+
+    const PX_PER_MM = SCREEN_DPI / MM_PER_INCH;
+    const mmW = Math.max(10, Math.round(rectW / PX_PER_MM));
+    const mmH = Math.max(10, Math.round(rectH / PX_PER_MM));
+
+    this._sizeLabel.textContent = `${mmW} × ${mmH} mm`;
+    this._sizeLabel.setAttribute('x', x + rectW / 2);
+    this._sizeLabel.setAttribute('y', y + rectH - 14);
+
+    this._customW.value = mmW;
+    this._customH.value = mmH;
+  }
+
+  _dragEnd() {
+    this._dragState = null;
+    document.removeEventListener('mousemove', this._onMouseMove);
+    document.removeEventListener('mouseup',   this._onMouseUp);
+    // Suppress the click that fires after mouseup so the overlay stays visible
+    this._suppressNextOutsideClick = true;
+    setTimeout(() => { this._suppressNextOutsideClick = false; }, 100);
   }
 
   _getCurrentExportSize() {
@@ -623,9 +733,11 @@ export class CustomExportControl {
     table.className = 'print-table';
     table.style.cssText = 'border-collapse:collapse; width:100%;';
 
+    // Internal custom size state — driven by drag, not numeric inputs
+    this._customW = { value: '279' };
+    this._customH = { value: '216' };
+
     table.appendChild(this._row('Page Size',  this._buildSizeSelect()));
-    this._customRow = this._buildCustomRow();
-    table.appendChild(this._customRow);
     this._orientRow = this._row('Orientation', this._buildOrientationSelect());
     table.appendChild(this._orientRow);
     table.appendChild(this._row('Format',      this._buildFormatSelect()));
@@ -689,54 +801,12 @@ export class CustomExportControl {
 
     sel.addEventListener('change', () => {
       const isCustom = sel.value === CUSTOM_KEY;
-      this._customRow.style.display = isCustom ? '' : 'none';
       this._orientRow.style.display = isCustom ? 'none' : '';
       if (this._overlayVisible) this._updateOverlay();
     });
 
     this._sizeSelect = sel;
     return sel;
-  }
-
-  _buildCustomRow() {
-    const tr = document.createElement('tr');
-    tr.style.display = 'none';
-
-    const th = document.createElement('td');
-    th.style.cssText = 'font-size:12px; padding:3px 8px 3px 0; white-space:nowrap; color:#444;';
-    th.textContent = 'W × H (mm)';
-
-    const td = document.createElement('td');
-    td.style.cssText = 'display:flex; gap:4px; align-items:center;';
-
-    const numStyle =
-      'width:60px; font-size:12px; padding:3px 4px; border:1px solid #ccc; border-radius:3px;';
-
-    this._customW = document.createElement('input');
-    this._customW.type = 'number';
-    this._customW.setAttribute('min',   '10');
-    this._customW.setAttribute('max',   '5000');
-    this._customW.setAttribute('value', '279');   // sets defaultValue → spinner uses this as base
-    this._customW.style.cssText = numStyle;
-
-    this._customH = document.createElement('input');
-    this._customH.type = 'number';
-    this._customH.setAttribute('min',   '10');
-    this._customH.setAttribute('max',   '5000');
-    this._customH.setAttribute('value', '216');   // sets defaultValue → spinner uses this as base
-    this._customH.style.cssText = numStyle;
-
-    const x = document.createElement('span');
-    x.textContent = '×';
-    x.style.cssText = 'font-size:12px; color:#666;';
-
-    const onCustomChange = () => { if (this._overlayVisible) this._updateOverlay(); };
-    this._customW.addEventListener('input', onCustomChange);
-    this._customH.addEventListener('input', onCustomChange);
-
-    td.append(this._customW, x, this._customH);
-    tr.append(th, td);
-    return tr;
   }
 
   _buildOrientationSelect() {
