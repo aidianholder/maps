@@ -689,6 +689,34 @@ details[open] > .section-header::before {
 }
 .ip-collapse-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.08); }
 
+.ip-size-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.ip-size-label {
+  font-size: 11px;
+  color: #718096;
+  flex-shrink: 0;
+}
+
+.ip-size-slider {
+  flex: 1;
+  accent-color: #63b3ed;
+  cursor: pointer;
+}
+
+.ip-size-val {
+  font-size: 11px;
+  color: #a0aec0;
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .ip-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

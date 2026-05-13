@@ -485,6 +485,11 @@ export class CustomExportControl {
     this._container.appendChild(this._btn);
     this._container.appendChild(this._panel);
 
+    // Track active style URL (updated when StyleSwitcherControl fires mapstylechange)
+    this._styleUrl = this._options.StyleURL || '';
+    this._onStyleChange = (e) => { this._styleUrl = e.detail.uri; };
+    this._map.getContainer().addEventListener('mapstylechange', this._onStyleChange);
+
     // Close panel on outside click (overlay stays visible)
     this._outsideClick = (e) => {
       if (this._suppressNextOutsideClick) {
@@ -514,6 +519,7 @@ export class CustomExportControl {
 
   onRemove() {
     document.removeEventListener('click', this._outsideClick);
+    this._map.getContainer().removeEventListener('mapstylechange', this._onStyleChange);
     this._map.off('resize', this._onResize);
     this._overlay?.remove();
     for (const el of Object.values(this._handleEls ?? {})) el.remove();
@@ -754,7 +760,8 @@ export class CustomExportControl {
     this._orientRow = this._row('Orientation', this._buildOrientationSelect());
     table.appendChild(this._orientRow);
     table.appendChild(this._row('Format',      this._buildFormatSelect()));
-    table.appendChild(this._row('DPI',         this._buildDPISelect()));
+    this._dpiRow = this._row('DPI', this._buildDPISelect());
+    table.appendChild(this._dpiRow);
 
     const btnRow  = document.createElement('tr');
     const btnCell = document.createElement('td');
@@ -832,10 +839,12 @@ export class CustomExportControl {
   }
 
   _buildFormatSelect() {
-    return this._select(
-      'mapbox-gl-export-format-type',
-      Object.fromEntries(Object.entries(Format)),
-      this._options.Format);
+    const formats = { ...Object.fromEntries(Object.entries(Format)), 'HTML': 'html' };
+    const sel = this._select('mapbox-gl-export-format-type', formats, this._options.Format);
+    sel.addEventListener('change', () => {
+      if (this._dpiRow) this._dpiRow.style.display = sel.value === 'html' ? 'none' : '';
+    });
+    return sel;
   }
 
   _buildDPISelect() {
@@ -849,11 +858,201 @@ export class CustomExportControl {
 
   _generate() {
     this._panel.style.display = 'none';
-
     const format = this._panel.querySelector('#mapbox-gl-export-format-type').value;
-    const dpi    = Number(this._panel.querySelector('#mapbox-gl-export-dpi-type').value);
-    const size   = this._getCurrentExportSize();
-
+    if (format === 'html') { this._generateHtml(); return; }
+    const dpi  = Number(this._panel.querySelector('#mapbox-gl-export-dpi-type').value);
+    const size = this._getCurrentExportSize();
     new MapGenerator(this._map, size, dpi, format, Unit.mm, this._options.Filename).generate();
+  }
+
+  // ── HTML embed export ──────────────────────────────────────────────────────
+
+  _generateHtml() {
+    const center = this._map.getCenter();
+    const zoom   = this._map.getZoom();
+    const styleUrl = this._options.StyleURLMap?.[this._styleUrl]
+      ?? new URL(this._styleUrl || '', window.location.href).href;
+
+    // Map dimensions from the current export overlay
+    const [mmW, mmH] = this._getCurrentExportSize();
+    const pxPerMm = SCREEN_DPI / MM_PER_INCH;
+    const maxW = Math.round(mmW * pxPerMm);
+    const mapH = Math.round(mmH * pxPerMm);
+
+    const locatorFeatures = this._collectLocatorFeatures();
+    const { iconFeatures, iconDataMap } = this._collectIconData();
+    const font = this._detectStyleFont();
+
+    const html = this._buildHtml({
+      center, zoom, styleUrl, maxW, mapH,
+      locatorFeatures, iconFeatures, iconDataMap, font,
+    });
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), {
+      href: url, download: `${this._options.Filename || 'map'}.html`,
+    });
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  _detectStyleFont() {
+    try {
+      for (const layer of (this._map.getStyle()?.layers ?? [])) {
+        if (layer.type !== 'symbol') continue;
+        const tf = layer.layout?.['text-font'];
+        if (Array.isArray(tf) && typeof tf[0] === 'string') return tf;
+        if (Array.isArray(tf) && tf[0] === 'literal' && Array.isArray(tf[1])) return tf[1];
+      }
+    } catch (_) { /* ignore */ }
+    return ['Noto Sans Regular', 'Arial Unicode MS Regular'];
+  }
+
+  _collectLocatorFeatures() {
+    return Array.from(document.querySelectorAll('.lm:not(.lm-thumb)'))
+      .filter(el => this._map.getContainer().contains(el))
+      .flatMap(el => {
+        const textEl  = el.querySelector('.lm-text');
+        const bodyEl  = el.querySelector('.lm-body');
+        const text    = (textEl?.innerText ?? '').trim();
+        if (!text) return [];
+
+        const tailDown = el.classList.contains('lm-tail-down');
+        const tailUp   = el.classList.contains('lm-tail-up');
+        const posLeft  = el.classList.contains('lm-pos-left');
+        const posRight = el.classList.contains('lm-pos-right');
+
+        let anchor = 'center';
+        if (tailDown) anchor = posLeft ? 'bottom-left' : posRight ? 'bottom-right' : 'bottom';
+        else if (tailUp) anchor = posLeft ? 'top-left'  : posRight ? 'top-right'   : 'top';
+
+        const isDark  = el.classList.contains('lm-dark');
+        const isLine  = el.classList.contains('lm-line');
+        const textColor  = isDark ? '#ffffff' : '#1a1a1a';
+        const haloColor  = isDark ? '#1a1a1a' : '#ffffff';
+        const haloWidth  = (isDark || el.classList.contains('lm-white')) ? 4 : 2;
+
+        return [{
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [
+            parseFloat(el.getAttribute('data-lng')),
+            parseFloat(el.getAttribute('data-lat')),
+          ]},
+          properties: {
+            text,
+            fontSize:   parseFloat(bodyEl?.style.fontSize) || 14,
+            anchor,
+            textColor,
+            haloColor,
+            haloWidth,
+          },
+        }];
+      });
+  }
+
+  _collectIconData() {
+    const BASE = 'https://mapicons.nyc3.cdn.digitaloceanspaces.com/png/maki/';
+    const mapContainer = this._map.getContainer();
+    const iconEls = Array.from(document.querySelectorAll('.map-icon'))
+      .filter(el => mapContainer.contains(el));
+
+    const iconDataMap = {};
+    for (const el of iconEls) {
+      const name = el.dataset.icon;
+      if (name && !iconDataMap[name]) iconDataMap[name] = `${BASE}${name}.png`;
+    }
+
+    const iconFeatures = iconEls
+      .filter(el => el.dataset.icon)
+      .map(el => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [
+          parseFloat(el.getAttribute('data-lng')),
+          parseFloat(el.getAttribute('data-lat')),
+        ]},
+        properties: { icon: el.dataset.icon },
+      }));
+
+    return { iconFeatures, iconDataMap };
+  }
+
+  _buildHtml({ center, zoom, styleUrl, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font }) {
+    const hasLocators = locatorFeatures.length > 0;
+    const hasIcons    = iconFeatures.length > 0;
+    const fontJson    = JSON.stringify(font);
+
+    const iconLoadLines = Object.entries(iconDataMap).map(([name, url]) =>
+      `        image = await map.loadImage("${url}");\n        map.addImage('${name}', image.data);`
+    ).join('\n');
+
+    const iconSourceJs = hasIcons ? `
+        map.addSource('map-icons', {
+            type: 'geojson',
+            data: ${JSON.stringify({ type: 'FeatureCollection', features: iconFeatures }, null, 12)},
+        });
+        map.addLayer({
+            id: 'map-icons',
+            type: 'symbol',
+            source: 'map-icons',
+            layout: {
+                'icon-image':         ['get', 'icon'],
+                'icon-size':          1,
+                'icon-allow-overlap': true,
+            },
+        });` : '';
+
+    const locatorJs = hasLocators ? `
+        map.addSource('locators', {
+            type: 'geojson',
+            data: ${JSON.stringify({ type: 'FeatureCollection', features: locatorFeatures }, null, 12)},
+        });
+        map.addLayer({
+            id: 'locators',
+            type: 'symbol',
+            source: 'locators',
+            layout: {
+                'text-field':            ['get', 'text'],
+                'text-size':             ['get', 'fontSize'],
+                'text-font':             ${fontJson},
+                'text-anchor':           ['get', 'anchor'],
+                'text-allow-overlap':    true,
+                'text-ignore-placement': false,
+            },
+            paint: {
+                'text-color':      ['get', 'textColor'],
+                'text-halo-color': ['get', 'haloColor'],
+                'text-halo-width': ['get', 'haloWidth'],
+            },
+        });` : '';
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
+    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"><\/script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        #map { width: 100%; max-width: ${maxW}px; height: ${mapH}px; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: '${styleUrl}',
+        center: [${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}],
+        zoom: ${zoom.toFixed(3)},
+    });
+
+    map.on('load', async () => {
+${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${locatorJs}
+    });
+<\/script>
+</body>
+</html>`;
   }
 }

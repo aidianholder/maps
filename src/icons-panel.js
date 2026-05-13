@@ -7,7 +7,8 @@ const ICON_SIZE = 15;
 export class IconsPanel {
   constructor(map) {
     this._map = map;
-    this._icons = []; // { marker, el, iconName }
+    this._icons = [];    // { marker, el, iconName }
+    this._iconSize = ICON_SIZE;
   }
 
   mount(container) {
@@ -30,6 +31,34 @@ export class IconsPanel {
     header.appendChild(title);
     header.appendChild(collapseBtn);
 
+    // ── Size slider ──────────────────────────────────────────────────────────
+    const sizeRow = document.createElement('div');
+    sizeRow.className = 'ip-size-row';
+
+    const sizeLabel = document.createElement('label');
+    sizeLabel.textContent = 'Size';
+    sizeLabel.className = 'ip-size-label';
+
+    const slider = document.createElement('input');
+    slider.type  = 'range';
+    slider.min   = 10;
+    slider.max   = 60;
+    slider.step  = 1;
+    slider.value = this._iconSize;
+    slider.className = 'ip-size-slider';
+
+    const sizeVal = document.createElement('span');
+    sizeVal.className = 'ip-size-val';
+    sizeVal.textContent = `${this._iconSize}px`;
+
+    slider.addEventListener('input', () => {
+      this._iconSize = Number(slider.value);
+      sizeVal.textContent = `${this._iconSize}px`;
+      this._updateIconSizes();
+    });
+
+    sizeRow.append(sizeLabel, slider, sizeVal);
+
     const grid = document.createElement('div');
     grid.className = 'ip-grid';
 
@@ -49,6 +78,7 @@ export class IconsPanel {
     });
 
     this._panel.appendChild(header);
+    this._panel.appendChild(sizeRow);
     this._panel.appendChild(grid);
     container.appendChild(this._panel);
 
@@ -66,13 +96,13 @@ export class IconsPanel {
     const el = document.createElement('div');
     el.className = 'map-icon';
     el.dataset.icon = iconName;
-    el.style.width = `${ICON_SIZE}px`;
-    el.style.height = `${ICON_SIZE}px`;
-    
+    el.style.width  = `${this._iconSize}px`;
+    el.style.height = `${this._iconSize}px`;
+
     const img = document.createElement('img');
     img.src = `/icons/${iconName}-${ICON_SIZE}.svg`;
-    img.style.width = `${ICON_SIZE}px`;
-    img.style.height = `${ICON_SIZE}px`;
+    img.style.width  = `${this._iconSize}px`;
+    img.style.height = `${this._iconSize}px`;
     el.appendChild(img);
 
     const del = document.createElement('button');
@@ -146,6 +176,16 @@ export class IconsPanel {
     const w  = el.offsetWidth  || 0;
     const h  = el.offsetHeight || 0;
     el.style.transform = `translate(${pt.x - w / 2}px, ${pt.y - h / 2}px)`;
+  }
+
+  _updateIconSizes() {
+    this._icons.forEach(({ el }) => {
+      el.style.width  = `${this._iconSize}px`;
+      el.style.height = `${this._iconSize}px`;
+      const img = el.querySelector('img');
+      if (img) { img.style.width = `${this._iconSize}px`; img.style.height = `${this._iconSize}px`; }
+    });
+    this.syncPositions();
   }
 
   _collapse() {

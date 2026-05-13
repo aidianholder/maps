@@ -46,6 +46,9 @@ export class StyleSwitcherControl {
           return;
         }
         map.setStyle(style.uri);
+        map.getContainer().dispatchEvent(
+          new CustomEvent('mapstylechange', { detail: { uri: style.uri } })
+        );
         this._list.querySelectorAll('button').forEach(b => b.classList.remove('active'));
         item.classList.add('active');
         this._list.style.display = 'none';

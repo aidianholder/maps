@@ -47,6 +47,14 @@ map.addControl(
     Format: 'PDF',
     DPI: 150,
     Filename: 'map-export',
+    StyleURL: STYLES.find(s => s.title === DEFAULT_STYLE).uri,
+    StyleURLMap: {
+      '/styles/aws.json':         'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/aws.json',
+      '/styles/newsprint.json':   'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/newsprint.json',
+      '/styles/osmbright.json':   'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/osmbright.json',
+      '/styles/protostyle2.json': 'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/protostyle2.json',
+      '/styles/positron.json':    'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/positron.json',
+    },
   }),
   'top-right'
 );
