@@ -284,6 +284,13 @@ export class LocatorPanel {
         this._deselect();
       }
     });
+
+    // Invisible collision layer — keeps map labels from overlapping locators
+    if (this._map.loaded()) {
+      this._initCollisionLayer();
+    } else {
+      this._map.once('load', () => this._initCollisionLayer());
+    }
   }
 
   // ── Add marker ───────────────────────────────────────────────────────────────
@@ -325,7 +332,11 @@ export class LocatorPanel {
       marker.remove();
       this._markers = this._markers.filter(m => m !== entry);
       if (this._activeEl === el) this._activeEl = null;
+      this._syncCollisionLayer();
     });
+
+    // ── Text edits → update collision box ─────────────────────────────────
+    el.querySelector('.lm-text').addEventListener('input', () => this._syncCollisionLayer());
 
     // ── Custom drag ────────────────────────────────────────────────────────
     // Any mousedown on the marker body triggers either a drag (if the pointer
@@ -370,6 +381,7 @@ export class LocatorPanel {
 
         // Force a map-level move event to trigger syncAllMarkers
         this._map.fire('move');
+        if (dragging) this._syncCollisionLayer();
 
         if (!dragging) {
           // It was a tap/click — focus text for editing if pointer stayed on text
@@ -406,6 +418,8 @@ export class LocatorPanel {
       sel.removeAllRanges();
       sel.addRange(range);
     });
+
+    this._syncCollisionLayer();
   }
 
   // ── Selection ────────────────────────────────────────────────────────────────
@@ -447,6 +461,68 @@ export class LocatorPanel {
       textEl.style.textAlign = this._align;
       textEl.dataset.align   = this._align;
     }
+  }
+
+  // ── Collision layer ──────────────────────────────────────────────────────────
+
+  _getStyleFont() {
+    try {
+      for (const layer of (this._map.getStyle()?.layers ?? [])) {
+        if (layer.type !== 'symbol') continue;
+        const tf = layer.layout?.['text-font'];
+        if (!tf) continue;
+        if (Array.isArray(tf) && typeof tf[0] === 'string') return tf;
+        if (Array.isArray(tf) && tf[0] === 'literal' && Array.isArray(tf[1])) return tf[1];
+      }
+    } catch (_) { /* ignore */ }
+    return ['Noto Sans Regular', 'Arial Unicode MS Regular'];
+  }
+
+  _initCollisionLayer() {
+    if (this._map.getSource('lm-collision')) return;
+    this._map.addSource('lm-collision', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+    this._map.addLayer({
+      id: 'lm-collision',
+      type: 'symbol',
+      source: 'lm-collision',
+      layout: {
+        'text-field':             ['get', 'text'],
+        'text-size':              ['get', 'fontSize'],
+        'text-font':              this._getStyleFont(),
+        'text-allow-overlap':     true,   // locators are always shown
+        'text-ignore-placement':  false,  // they DO block other map labels
+        'text-padding':           10,
+      },
+      paint: { 'text-opacity': 0 },
+    });
+    this._collisionReady = true;
+    this._syncCollisionLayer();
+  }
+
+  _syncCollisionLayer() {
+    if (!this._collisionReady) return;
+    const src = this._map.getSource('lm-collision');
+    if (!src) return;
+    src.setData({
+      type: 'FeatureCollection',
+      features: this._markers.map(({ el }) => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [
+            parseFloat(el.getAttribute('data-lng')),
+            parseFloat(el.getAttribute('data-lat')),
+          ],
+        },
+        properties: {
+          text:     (el.querySelector('.lm-text')?.innerText ?? '').trim(),
+          fontSize: parseFloat(el.querySelector('.lm-body')?.style.fontSize) || 14,
+        },
+      })),
+    });
   }
 
   // ── Collapse / expand ────────────────────────────────────────────────────────
