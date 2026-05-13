@@ -751,6 +751,11 @@ details[open] > .section-header::before {
   filter: invert(1);
 }
 
+.map-icon-selected {
+  outline: 2px solid #63b3ed;
+  outline-offset: 3px;
+}
+
 /* Collapsed tab */
 #icons-tab {
   display: none;

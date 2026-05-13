@@ -965,14 +965,18 @@ export class CustomExportControl {
 
     const iconFeatures = iconEls
       .filter(el => el.dataset.icon)
-      .map(el => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [
-          parseFloat(el.getAttribute('data-lng')),
-          parseFloat(el.getAttribute('data-lat')),
-        ]},
-        properties: { icon: el.dataset.icon },
-      }));
+      .map(el => {
+        const sizePx   = parseInt(el.dataset.size) || 15;
+        const iconSize = Math.round((sizePx / 15) * 10) / 10;
+        return {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [
+            parseFloat(el.getAttribute('data-lng')),
+            parseFloat(el.getAttribute('data-lat')),
+          ]},
+          properties: { icon: el.dataset.icon, iconSize },
+        };
+      });
 
     return { iconFeatures, iconDataMap };
   }
@@ -986,21 +990,26 @@ export class CustomExportControl {
       `        image = await map.loadImage("${url}");\n        map.addImage('${name}', image.data);`
     ).join('\n');
 
+    const uniqueIcons = [...new Set(iconFeatures.map(f => f.properties.icon))];
+    const iconLayersJs = uniqueIcons.map(name => `
+        map.addLayer({
+            id: '${name}',
+            type: 'symbol',
+            source: 'map-icons',
+            filter: ['==', ['get', 'icon'], '${name}'],
+            layout: {
+                'icon-image':         '${name}',
+                'icon-size':          ['get', 'iconSize'],
+                'icon-allow-overlap': true,
+            },
+        });`).join('\n');
+
     const iconSourceJs = hasIcons ? `
         map.addSource('map-icons', {
             type: 'geojson',
             data: ${JSON.stringify({ type: 'FeatureCollection', features: iconFeatures }, null, 12)},
         });
-        map.addLayer({
-            id: 'map-icons',
-            type: 'symbol',
-            source: 'map-icons',
-            layout: {
-                'icon-image':         ['get', 'icon'],
-                'icon-size':          1,
-                'icon-allow-overlap': true,
-            },
-        });` : '';
+${iconLayersJs}` : '';
 
     const locatorJs = hasLocators ? `
         map.addSource('locators', {
