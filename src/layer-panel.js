@@ -9,16 +9,7 @@ export class LayerPanel {
   }
 
   mount(container) {
-    this._sidebar = container;
-
-    // ── Collapsed tab (visible when sidebar is collapsed) ──────────────────
-    this._tab = document.createElement('div');
-    this._tab.id = 'sidebar-tab';
-    this._tab.setAttribute('aria-label', 'Expand layers panel');
-    this._tab.innerHTML = `<span class="tab-label">LAYERS</span><span class="tab-arrow">›</span>`;
-    this._tab.addEventListener('click', () => this._expand());
-
-    // ── Panel (visible when expanded) ──────────────────────────────────────
+    // ── Panel ──────────────────────────────────────────────────────────────
     this._el = document.createElement('div');
     this._el.id = 'layer-panel';
 
@@ -32,9 +23,12 @@ export class LayerPanel {
     const closeBtn = document.createElement('button');
     closeBtn.id = 'panel-close';
     closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'Collapse panel');
+    closeBtn.setAttribute('aria-label', 'Close panel');
     closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', () => this._collapse());
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      container.dispatchEvent(new CustomEvent('panel-close', { bubbles: true }));
+    });
 
     header.appendChild(title);
     header.appendChild(closeBtn);
@@ -44,21 +38,10 @@ export class LayerPanel {
     this._list.id = 'layer-list';
     this._el.appendChild(this._list);
 
-    container.appendChild(this._tab);
     container.appendChild(this._el);
 
     this._map.on('style.load', () => this._rebuild());
     if (this._map.isStyleLoaded()) this._rebuild();
-  }
-
-  // ── Collapse / expand ────────────────────────────────────────────────────
-
-  _collapse() {
-    this._sidebar.classList.add('collapsed');
-  }
-
-  _expand() {
-    this._sidebar.classList.remove('collapsed');
   }
 
   // ── Config lookup ─────────────────────────────────────────────────────────

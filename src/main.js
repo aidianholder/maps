@@ -60,13 +60,39 @@ map.addControl(
 );
 
 const layerPanel = new LayerPanel(map, STYLE_CONFIGS);
-layerPanel.mount(document.getElementById('sidebar'));
+layerPanel.mount(document.getElementById('panel-layers'));
 
 const locatorPanel = new LocatorPanel(map);
-locatorPanel.mount(document.getElementById('locator-root'));
+locatorPanel.mount(document.getElementById('panel-locators'));
 
 const iconsPanel = new IconsPanel(map);
-iconsPanel.mount(document.getElementById('icons-root'));
+iconsPanel.mount(document.getElementById('panel-icons'));
+
+// ── Toolbar dropdown logic ─────────────────────────────────────────────────
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.panel-dropdown').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.tb-btn').forEach(b => b.classList.remove('active'));
+}
+
+[
+  ['btn-layers',   'panel-layers'],
+  ['btn-locators', 'panel-locators'],
+  ['btn-icons',    'panel-icons'],
+].forEach(([btnId, panelId]) => {
+  const btn   = document.getElementById(btnId);
+  const panel = document.getElementById(panelId);
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = panel.classList.contains('open');
+    closeAllDropdowns();
+    if (!isOpen) { panel.classList.add('open'); btn.classList.add('active'); }
+  });
+  panel.addEventListener('panel-close', closeAllDropdowns);
+});
+
+// Click anywhere outside a dropdown or toolbar button closes all
+document.addEventListener('click', closeAllDropdowns);
 
 // Global sync for markers on map move/zoom to prevent drift
 const syncAllMarkers = () => {

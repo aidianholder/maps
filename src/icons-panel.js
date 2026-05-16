@@ -27,7 +27,10 @@ export class IconsPanel {
     collapseBtn.type = 'button';
     collapseBtn.textContent = '✕';
     collapseBtn.title = 'Collapse panel';
-    collapseBtn.addEventListener('click', () => this._collapse());
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      container.dispatchEvent(new CustomEvent('panel-close', { bubbles: true }));
+    });
 
     header.appendChild(title);
     header.appendChild(collapseBtn);
@@ -91,13 +94,6 @@ export class IconsPanel {
       if (!e.originalEvent.target.closest?.('.map-icon')) this._deselectIcon();
     });
 
-    // Collapsed tab
-    this._tab = document.createElement('div');
-    this._tab.id = 'icons-tab';
-    this._tab.innerHTML = `<span class="it-label">ICONS</span><span class="it-arrow">‹</span>`;
-    this._tab.title = 'Expand icons panel';
-    this._tab.addEventListener('click', () => this._expand());
-    container.appendChild(this._tab);
   }
 
   _addIcon(iconName) {
@@ -226,15 +222,5 @@ export class IconsPanel {
     if (!isNaN(lng) && !isNaN(lat)) this._applyTransform(el, lng, lat);
   }
 
-  _collapse() {
-    this._panel.style.display = 'none';
-    this._tab.style.display = 'flex';
-    this._tab.parentElement.style.width = '2em';
-  }
-
-  _expand() {
-    this._panel.style.display = '';
-    this._tab.style.display = 'none';
-    this._tab.parentElement.style.width = '';
-  }
 }
+

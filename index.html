@@ -9,10 +9,25 @@
 </head>
 <body>
   <div id="app">
-    <aside id="sidebar"></aside>
     <div id="map"></div>
-    <div id="locator-root"></div>
-    <div id="icons-root"></div>
+    <div id="toolbar">
+      <div class="tb-item">
+        <button id="btn-layers" class="tb-btn" title="Layers">
+          <img src="/ui/layers.svg" class="tb-icon" alt="Layers">
+        </button>
+        <div id="panel-layers" class="panel-dropdown"></div>
+      </div>
+      <div class="tb-item">
+        <button id="btn-locators" class="tb-btn tb-btn-text" title="Labels">A</button>
+        <div id="panel-locators" class="panel-dropdown"></div>
+      </div>
+      <div class="tb-item">
+        <button id="btn-icons" class="tb-btn" title="Icons">
+          <img src="/ui/Icone.svg" class="tb-icon" alt="Icons">
+        </button>
+        <div id="panel-icons" class="panel-dropdown"></div>
+      </div>
+    </div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

@@ -156,8 +156,11 @@ export class LocatorPanel {
     collapseBtn.className = 'lp-collapse-btn';
     collapseBtn.type = 'button';
     collapseBtn.textContent = '✕';
-    collapseBtn.title = 'Collapse panel';
-    collapseBtn.addEventListener('click', () => this._collapse());
+    collapseBtn.title = 'Close panel';
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      container.dispatchEvent(new CustomEvent('panel-close', { bubbles: true }));
+    });
 
     header.appendChild(title);
     header.appendChild(collapseBtn);
@@ -269,14 +272,6 @@ export class LocatorPanel {
     this._panel.appendChild(controls);
     this._panel.appendChild(grid);
     container.appendChild(this._panel);
-
-    // ── Collapsed tab ────────────────────────────────────────────
-    this._tab = document.createElement('div');
-    this._tab.id = 'locator-tab';
-    this._tab.innerHTML = `<span class="lt-label">LOCATORS</span><span class="lt-arrow">‹</span>`;
-    this._tab.title = 'Expand locators panel';
-    this._tab.addEventListener('click', () => this._expand());
-    container.appendChild(this._tab);
 
     // Deselect on map click
     this._map.on('click', (e) => {
@@ -525,19 +520,6 @@ export class LocatorPanel {
     });
   }
 
-  // ── Collapse / expand ────────────────────────────────────────────────────────
-
-  _collapse() {
-    this._panel.style.display = 'none';
-    this._tab.style.display = 'flex';
-    this._tab.parentElement.style.width = '2em';
-  }
-
-  _expand() {
-    this._panel.style.display = '';
-    this._tab.style.display = 'none';
-    this._tab.parentElement.style.width = '';
-  }
 
   /**
    * Re-project all markers from their stored lng/lat to screen coords and set
