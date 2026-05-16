@@ -960,7 +960,7 @@ export class CustomExportControl {
     const iconDataMap = {};
     for (const el of iconEls) {
       const name = el.dataset.icon;
-      if (name && !iconDataMap[name]) iconDataMap[name] = `${BASE}${name}.png`;
+      if (name && !iconDataMap[name + '-icon']) iconDataMap[name + '-icon'] = `${BASE}${name}.png`;
     }
 
     const iconFeatures = iconEls
@@ -974,7 +974,7 @@ export class CustomExportControl {
             parseFloat(el.getAttribute('data-lng')),
             parseFloat(el.getAttribute('data-lat')),
           ]},
-          properties: { icon: el.dataset.icon, iconSize },
+          properties: { icon: el.dataset.icon + '-icon', iconSize },
         };
       });
 
@@ -1011,29 +1011,14 @@ export class CustomExportControl {
         });
 ${iconLayersJs}` : '';
 
-    const locatorJs = hasLocators ? `
-        map.addSource('locators', {
-            type: 'geojson',
-            data: ${JSON.stringify({ type: 'FeatureCollection', features: locatorFeatures }, null, 12)},
-        });
-        map.addLayer({
-            id: 'locators',
-            type: 'symbol',
-            source: 'locators',
-            layout: {
-                'text-field':            ['get', 'text'],
-                'text-size':             ['get', 'fontSize'],
-                'text-font':             ${fontJson},
-                'text-anchor':           ['get', 'anchor'],
-                'text-allow-overlap':    true,
-                'text-ignore-placement': false,
-            },
-            paint: {
-                'text-color':      ['get', 'textColor'],
-                'text-halo-color': ['get', 'haloColor'],
-                'text-halo-width': ['get', 'haloWidth'],
-            },
-        });` : '';
+    const locatorJs = hasLocators ? locatorFeatures.map(f => {
+      const [lng, lat] = f.geometry.coordinates;
+      const html = f.properties.text.replace(/\n/g, '<br>');
+      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}' })
+            .setLngLat([${lng}, ${lat}])
+            .setHTML(${JSON.stringify(html)})
+            .addTo(map);`;
+    }).join('\n') : '';
 
     return `<!DOCTYPE html>
 <html lang="en">
