@@ -23,6 +23,137 @@ html, body {
   inset: 0;
 }
 
+/* ── Draw button (left side, below zoom controls) ────────────────────────── */
+
+#draw-btn-wrapper {
+  position: absolute;
+  top: 110px;
+  left: 10px;
+  z-index: 20;
+}
+
+/* Panel opens to the right of the button */
+#draw-btn-wrapper .panel-dropdown {
+  top: 0;
+  left: calc(100% + 4px);
+  max-height: calc(100vh - 130px);
+}
+
+/* ── Draw panel ───────────────────────────────────────────────────────────── */
+
+#draw-panel {
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.dp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.dp-header h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a0aec0;
+}
+
+.dp-close-btn {
+  background: none;
+  border: none;
+  color: #718096;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.dp-close-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.08); }
+
+.dp-mode-row {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.dp-mode-btn {
+  flex: 1;
+  padding: 6px 2px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: #a0aec0;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dp-mode-btn:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+.dp-mode-active {
+  background: rgba(99,179,237,0.18) !important;
+  border-color: #63b3ed !important;
+  color: #63b3ed !important;
+}
+
+.dp-styles {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.dp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dp-label {
+  font-size: 11px;
+  color: #718096;
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.dp-color {
+  width: 32px;
+  height: 24px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 1px 2px;
+  background: none;
+  flex-shrink: 0;
+}
+
+.dp-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.dp-slider {
+  flex: 1;
+  accent-color: #63b3ed;
+  cursor: pointer;
+}
+
+.dp-slider-val {
+  font-size: 11px;
+  color: #a0aec0;
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ── MapLibre controls above export overlay ──────────────────────────────── */
 
 .maplibregl-control-container > * {

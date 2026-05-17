@@ -7,6 +7,7 @@ import { STYLE_CONFIGS } from './style-groups.js';
 import { CustomExportControl } from './custom-export-control.js';
 import { LocatorPanel } from './locator-panel.js';
 import { IconsPanel } from './icons-panel.js';
+import { DrawPanel }  from './draw-panel.js';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
 
@@ -68,6 +69,9 @@ locatorPanel.mount(document.getElementById('panel-locators'));
 const iconsPanel = new IconsPanel(map);
 iconsPanel.mount(document.getElementById('panel-icons'));
 
+const drawPanel = new DrawPanel(map);
+drawPanel.mount(document.getElementById('panel-draw'));
+
 // ── Toolbar dropdown logic ─────────────────────────────────────────────────
 
 function closeAllDropdowns() {
@@ -79,6 +83,7 @@ function closeAllDropdowns() {
   ['btn-layers',   'panel-layers'],
   ['btn-locators', 'panel-locators'],
   ['btn-icons',    'panel-icons'],
+  ['btn-draw',     'panel-draw'],
 ].forEach(([btnId, panelId]) => {
   const btn   = document.getElementById(btnId);
   const panel = document.getElementById(panelId);
@@ -91,8 +96,30 @@ function closeAllDropdowns() {
   panel.addEventListener('panel-close', closeAllDropdowns);
 });
 
-// Click anywhere outside a dropdown or toolbar button closes all
-document.addEventListener('click', closeAllDropdowns);
+// Click anywhere outside a dropdown or toolbar button closes all panels.
+// Two exceptions:
+//   1. Clicks inside an already-open panel keep that panel open (e.g. color
+//      pickers, sliders, checkboxes — all live inside the panel).
+//   2. Map-canvas clicks never close the draw panel so the user can place
+//      vertices while the panel stays visible.
+document.addEventListener('click', (e) => {
+  const drawPanel = document.getElementById('panel-draw');
+  const inMap     = document.getElementById('map').contains(e.target);
+
+  // Exception 2 — map click while draw panel is open
+  if (inMap && drawPanel.classList.contains('open')) {
+    document.querySelectorAll('.panel-dropdown:not(#panel-draw)').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.tb-btn:not(#btn-draw)').forEach(b => b.classList.remove('active'));
+    return;
+  }
+
+  // Exception 1 — click is inside an already-open panel
+  const inOpenPanel = [...document.querySelectorAll('.panel-dropdown.open')]
+    .some(p => p.contains(e.target));
+  if (inOpenPanel) return;
+
+  closeAllDropdowns();
+});
 
 // Global sync for markers on map move/zoom to prevent drift
 const syncAllMarkers = () => {

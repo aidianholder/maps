@@ -6,6 +6,7 @@
  * scaling, canvas rendering, and PDF/PNG/JPEG/SVG output.
  */
 import maplibregl from 'maplibre-gl';
+import { getDrawPanel } from './draw-panel.js';
 import {
   MapGeneratorBase,
   Size,
@@ -104,13 +105,15 @@ class MapGenerator extends MapGeneratorBase {
     if (terrain) map.setTerrain(terrain);
 
     // Wrap map.getCanvas() so that every call (from toPDF / toPNG / etc.)
-    // returns a 2D composite canvas with locator labels painted on top.
+    // returns a 2D composite canvas with locator labels, icons, and draw
+    // features painted on top.
     const origGetCanvas = map.getCanvas.bind(map);
     const self = this;
     map.getCanvas = function () {
-      const webgl = origGetCanvas();
-      const withLocators = self._compositeLocators(webgl, map);
-      return self._compositeIcons(withLocators, map);
+      const webgl         = origGetCanvas();
+      const withLocators  = self._compositeLocators(webgl, map);
+      const withIcons     = self._compositeIcons(withLocators, map);
+      return self._compositeDrawFeatures(withIcons, map);
     };
 
     return map;
@@ -266,6 +269,86 @@ class MapGenerator extends MapGeneratorBase {
       ctx.shadowBlur = 2 * scale;
       // Draw centered on the projected point
       ctx.drawImage(imgEl, cx - iconSize / 2, cy - iconSize / 2, iconSize, iconSize);
+      ctx.restore();
+    }
+
+    return composite;
+  }
+
+  _compositeDrawFeatures(baseCanvas, hiddenMap) {
+    const features = getDrawPanel(this.map)?.getSnapshot() ?? [];
+    if (features.length === 0) return baseCanvas;
+
+    const composite = document.createElement('canvas');
+    composite.width  = baseCanvas.width;
+    composite.height = baseCanvas.height;
+    const ctx = composite.getContext('2d');
+    ctx.drawImage(baseCanvas, 0, 0);
+
+    const cssW  = hiddenMap.getContainer().offsetWidth
+                  || this.map.getContainer().offsetWidth
+                  || (baseCanvas.width / window.devicePixelRatio);
+    const scale = baseCanvas.width / cssW;
+
+    const proj = (coord) => {
+      const pt = hiddenMap.project(coord);
+      return [pt.x * scale, pt.y * scale];
+    };
+
+    for (const f of features) {
+      const p    = f.properties;
+      const type = f.geometry.type;
+      const coords = f.geometry.coordinates;
+      ctx.save();
+
+      if (type === 'Point') {
+        const [cx, cy] = proj(coords);
+        const r = ((p.pointWidth || 8) / 2) * scale;
+        ctx.globalAlpha = p.pointOpacity ?? 1;
+        ctx.fillStyle   = p.pointColor || '#e03444';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.fill();
+        if ((p.pointOutlineWidth || 0) > 0) {
+          ctx.globalAlpha  = p.pointOutlineOpacity ?? 1;
+          ctx.strokeStyle  = p.pointOutlineColor || '#ffffff';
+          ctx.lineWidth    = (p.pointOutlineWidth || 1) * scale;
+          ctx.stroke();
+        }
+
+      } else if (type === 'LineString') {
+        if (coords.length < 2) { ctx.restore(); continue; }
+        const pts = coords.map(proj);
+        ctx.globalAlpha = p.lineStringOpacity ?? 1;
+        ctx.strokeStyle = p.lineStringColor   || '#3388ff';
+        ctx.lineWidth   = (p.lineStringWidth  || 2) * scale;
+        ctx.lineJoin    = 'round';
+        ctx.lineCap     = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+
+      } else if (type === 'Polygon') {
+        const ring = coords[0];
+        if (!ring || ring.length < 3) { ctx.restore(); continue; }
+        const pts = ring.map(proj);
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath();
+        ctx.globalAlpha = p.polygonFillOpacity ?? 0.3;
+        ctx.fillStyle   = p.polygonFillColor  || '#3388ff';
+        ctx.fill();
+        if ((p.polygonOutlineWidth || 0) > 0) {
+          ctx.globalAlpha = p.polygonOutlineOpacity ?? 1;
+          ctx.strokeStyle = p.polygonOutlineColor   || '#1a66cc';
+          ctx.lineWidth   = (p.polygonOutlineWidth  || 2) * scale;
+          ctx.lineJoin    = 'round';
+          ctx.stroke();
+        }
+      }
+
       ctx.restore();
     }
 
@@ -882,10 +965,11 @@ export class CustomExportControl {
     const locatorFeatures = this._collectLocatorFeatures();
     const { iconFeatures, iconDataMap } = this._collectIconData();
     const font = this._detectStyleFont();
+    const drawFeatures = getDrawPanel(this._map)?.getSnapshot() ?? [];
 
     const html = this._buildHtml({
       center, zoom, styleUrl, maxW, mapH,
-      locatorFeatures, iconFeatures, iconDataMap, font,
+      locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures,
     });
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -981,9 +1065,47 @@ export class CustomExportControl {
     return { iconFeatures, iconDataMap };
   }
 
-  _buildHtml({ center, zoom, styleUrl, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font }) {
+  _buildHtml({ center, zoom, styleUrl, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures = [] }) {
     const hasLocators = locatorFeatures.length > 0;
     const hasIcons    = iconFeatures.length > 0;
+
+    // ── Terra-draw feature layers ──────────────────────────────────────────
+    const tdPoints    = drawFeatures.filter(f => f.geometry.type === 'Point');
+    const tdLines     = drawFeatures.filter(f => f.geometry.type === 'LineString');
+    const tdPolygons  = drawFeatures.filter(f => f.geometry.type === 'Polygon');
+
+    const tdJs = [
+      tdPoints.length > 0 ? `
+        map.addSource('td-point', { type: 'geojson', data: ${JSON.stringify({ type: 'FeatureCollection', features: tdPoints }, null, 8)} });
+        map.addLayer({ id: 'td-point', type: 'circle', source: 'td-point', paint: {
+            'circle-color':           ['get', 'pointColor'],
+            'circle-radius':          ['get', 'pointWidth'],
+            'circle-opacity':         ['get', 'pointOpacity'],
+            'circle-stroke-color':    ['get', 'pointOutlineColor'],
+            'circle-stroke-width':    ['get', 'pointOutlineWidth'],
+            'circle-stroke-opacity':  ['get', 'pointOutlineOpacity'],
+        }});` : '',
+
+      tdLines.length > 0 ? `
+        map.addSource('td-linestring', { type: 'geojson', data: ${JSON.stringify({ type: 'FeatureCollection', features: tdLines }, null, 8)} });
+        map.addLayer({ id: 'td-linestring', type: 'line', source: 'td-linestring', paint: {
+            'line-color':   ['get', 'lineStringColor'],
+            'line-width':   ['get', 'lineStringWidth'],
+            'line-opacity': ['get', 'lineStringOpacity'],
+        }});` : '',
+
+      tdPolygons.length > 0 ? `
+        map.addSource('td-polygon', { type: 'geojson', data: ${JSON.stringify({ type: 'FeatureCollection', features: tdPolygons }, null, 8)} });
+        map.addLayer({ id: 'td-polygon', type: 'fill', source: 'td-polygon', paint: {
+            'fill-color':   ['get', 'polygonFillColor'],
+            'fill-opacity': ['get', 'polygonFillOpacity'],
+        }});
+        map.addLayer({ id: 'td-polygon-outline', type: 'line', source: 'td-polygon', paint: {
+            'line-color':   ['get', 'polygonOutlineColor'],
+            'line-width':   ['get', 'polygonOutlineWidth'],
+            'line-opacity': ['get', 'polygonOutlineOpacity'],
+        }});` : '',
+    ].join('');
     const fontJson    = JSON.stringify(font);
 
     const iconLoadLines = Object.entries(iconDataMap).map(([name, url]) =>
@@ -1043,7 +1165,7 @@ ${iconLayersJs}` : '';
     });
 
     map.on('load', async () => {
-${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${locatorJs}
+${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}
     });
 <\/script>
 </body>
