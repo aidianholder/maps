@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Aidian Holder
+// SPDX-License-Identifier: GPL-3.0-only
+
 /**
  * LocatorPanel — right-side panel for placing styled, editable, draggable text
  * markers on the map.  Uses maplibregl.Marker with custom HTML elements.

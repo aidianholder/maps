@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Aidian Holder
+// SPDX-License-Identifier: GPL-3.0-only
+
 /**
  * Layer panel — collapsible sidebar with folder-tree sections and per-layer checkboxes.
  */

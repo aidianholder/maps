@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Aidian Holder
+// SPDX-License-Identifier: GPL-3.0-only
+
 import { TerraDraw } from 'terra-draw';
 import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter';
 import {

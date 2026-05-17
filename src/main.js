@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Aidian Holder
+// SPDX-License-Identifier: GPL-3.0-only
+
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
