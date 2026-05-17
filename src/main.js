@@ -8,6 +8,8 @@ import { CustomExportControl } from './custom-export-control.js';
 import { LocatorPanel } from './locator-panel.js';
 import { IconsPanel } from './icons-panel.js';
 import { DrawPanel }  from './draw-panel.js';
+import MaplibreGeocoder from '@maplibre/maplibre-gl-geocoder';
+import '@maplibre/maplibre-gl-geocoder/dist/maplibre-gl-geocoder.css';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
 import './style.css';
 
@@ -40,6 +42,42 @@ map.addControl(new maplibregl.NavigationControl(), 'top-left');
 map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right');
 
 map.addControl(new StyleSwitcherControl(STYLES, DEFAULT_STYLE), 'bottom-left');
+
+// ── Geocoder (Nominatim) ───────────────────────────────────────────────────
+const geocoderApi = {
+  forwardGeocode: async (config) => {
+    const features = [];
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${
+        encodeURIComponent(config.query)
+      }&format=geojson&polygon_geojson=1&addressdetails=1`;
+      const geojson = await fetch(url).then(r => r.json());
+      for (const feature of geojson.features) {
+        const center = [
+          feature.bbox[0] + (feature.bbox[2] - feature.bbox[0]) / 2,
+          feature.bbox[1] + (feature.bbox[3] - feature.bbox[1]) / 2,
+        ];
+        features.push({
+          type:       'Feature',
+          geometry:   { type: 'Point', coordinates: center },
+          place_name: feature.properties.display_name,
+          properties: feature.properties,
+          text:       feature.properties.display_name,
+          place_type: ['place'],
+          center,
+        });
+      }
+    } catch (e) {
+      console.error('Geocoder error:', e);
+    }
+    return { features };
+  },
+};
+
+map.addControl(
+  new MaplibreGeocoder(geocoderApi, { maplibregl }),
+  'top-right'
+);
 
 map.addControl(
   new CustomExportControl({
