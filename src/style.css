@@ -154,6 +154,13 @@ html, body {
   flex-shrink: 0;
 }
 
+.dp-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  padding: 10px 14px;
+  font-style: italic;
+}
+
 /* ── MapLibre controls above export overlay ──────────────────────────────── */
 
 .maplibregl-control-container > * {

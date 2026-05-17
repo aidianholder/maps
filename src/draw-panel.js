@@ -8,7 +8,10 @@ import {
   TerraDrawSelectMode,
 } from 'terra-draw';
 
-// ── Style state (mutable; style functions close over this) ─────────────────
+// ── Global default styles ──────────────────────────────────────────────────
+// Used as the default for newly drawn features.  Each committed feature gets
+// these values baked into its own GeoJSON properties so it can be styled
+// independently later.
 
 const STYLES = {
   point: {
@@ -34,7 +37,33 @@ const STYLES = {
   },
 };
 
-// ── Per-map registry (lets the export control find the panel at export time) ─
+// Maps STYLES keys → terra-draw feature property keys (what setFeatureProperty / getSnapshot uses)
+const PROP_MAP = {
+  point: {
+    color:        'pointColor',
+    width:        'pointWidth',
+    outlineColor: 'pointOutlineColor',
+  },
+  linestring: {
+    color: 'lineStringColor',
+    width: 'lineStringWidth',
+  },
+  polygon: {
+    fillColor:    'polygonFillColor',
+    fillOpacity:  'polygonFillOpacity',
+    outlineColor: 'polygonOutlineColor',
+    outlineWidth: 'polygonOutlineWidth',
+  },
+  circle: {
+    // circles are stored as Polygon geometry, same property names
+    fillColor:    'polygonFillColor',
+    fillOpacity:  'polygonFillOpacity',
+    outlineColor: 'polygonOutlineColor',
+    outlineWidth: 'polygonOutlineWidth',
+  },
+};
+
+// ── Per-map registry ───────────────────────────────────────────────────────
 
 const _registry = new WeakMap();
 export function getDrawPanel(map) { return _registry.get(map); }
@@ -43,25 +72,23 @@ export function getDrawPanel(map) { return _registry.get(map); }
 
 export class DrawPanel {
   constructor(map) {
-    this._map    = map;
-    this._draw   = null;
-    this._active = null;   // currently active mode name, or null
+    this._map        = map;
+    this._draw       = null;
+    this._active     = null;   // active mode name, or null
+    this._selectedId = null;   // ID of the feature selected in select mode
   }
 
   mount(container) {
     this._container = container;
 
-    // ── Panel wrapper ──────────────────────────────────────────────
     const panel = document.createElement('div');
     panel.id = 'draw-panel';
 
-    // ── Header ─────────────────────────────────────────────────────
+    // ── Header ──────────────────────────────────────────────────────
     const header = document.createElement('div');
     header.className = 'dp-header';
-
     const title = document.createElement('h2');
     title.textContent = 'Draw';
-
     const closeBtn = document.createElement('button');
     closeBtn.className = 'dp-close-btn';
     closeBtn.type = 'button';
@@ -71,52 +98,42 @@ export class DrawPanel {
       this._deactivate();
       container.dispatchEvent(new CustomEvent('panel-close', { bubbles: true }));
     });
-
     header.append(title, closeBtn);
 
-    // ── Mode buttons ───────────────────────────────────────────────
+    // ── Mode buttons ─────────────────────────────────────────────────
     const modeRow = document.createElement('div');
     modeRow.className = 'dp-mode-row';
-
     this._modeBtns = {};
     [
-      { id: 'point',      icon: '●',  title: 'Point'   },
-      { id: 'linestring', icon: '╱',  title: 'Line'    },
-      { id: 'circle',     icon: '○',  title: 'Circle'  },
-      { id: 'polygon',    icon: '⬡',  title: 'Polygon' },
-      { id: 'select',     icon: '↖',  title: 'Select'  },
+      { id: 'point',      icon: '●', title: 'Point'   },
+      { id: 'linestring', icon: '╱', title: 'Line'    },
+      { id: 'circle',     icon: '○', title: 'Circle'  },
+      { id: 'polygon',    icon: '⬡', title: 'Polygon' },
+      { id: 'select',     icon: '↖', title: 'Select'  },
     ].forEach(({ id, icon, title: t }) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'dp-mode-btn';
       btn.textContent = icon;
       btn.title = t;
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._toggleMode(id);
-      });
+      btn.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMode(id); });
       modeRow.appendChild(btn);
       this._modeBtns[id] = btn;
     });
 
-    // ── Style controls area ────────────────────────────────────────
+    // ── Style controls area ───────────────────────────────────────────
     this._styleArea = document.createElement('div');
     this._styleArea.className = 'dp-styles';
 
     panel.append(header, modeRow, this._styleArea);
     container.appendChild(panel);
 
-    // Register so the export control can find us
     _registry.set(this._map, this);
 
-    // Deactivate when dropdown is closed from outside (toolbar click-away)
     new MutationObserver(() => {
-      if (!container.classList.contains('open') && this._active) {
-        this._deactivate();
-      }
+      if (!container.classList.contains('open') && this._active) this._deactivate();
     }).observe(container, { attributes: true, attributeFilter: ['class'] });
 
-    // Init terra-draw once the map is ready
     if (this._map.loaded()) {
       this._initDraw();
     } else {
@@ -127,47 +144,44 @@ export class DrawPanel {
   // ── Terra-draw setup ───────────────────────────────────────────────────────
 
   _initDraw() {
-    const s = STYLES;
-
     this._draw = new TerraDraw({
       adapter: new TerraDrawMapLibreGLAdapter({
         map: this._map,
-        // Default threshold of 1px treats nearly every click as a drag.
-        // Raise it so normal user clicks reliably fire onClick.
-        minPixelDragDistance:         8,
-        minPixelDragDistanceDrawing:  8,
+        minPixelDragDistance:          8,
+        minPixelDragDistanceDrawing:   8,
         minPixelDragDistanceSelecting: 8,
       }),
       modes: [
         new TerraDrawPointMode({
           styles: {
-            pointColor:        () => s.point.color,
-            pointWidth:        () => s.point.width,
-            pointOutlineColor: () => s.point.outlineColor,
+            // Read stored per-feature value first; fall back to global default
+            pointColor:        (f) => f.properties.pointColor        ?? STYLES.point.color,
+            pointWidth:        (f) => f.properties.pointWidth        ?? STYLES.point.width,
+            pointOutlineColor: (f) => f.properties.pointOutlineColor ?? STYLES.point.outlineColor,
             pointOutlineWidth: 1,
           },
         }),
         new TerraDrawLineStringMode({
-          editable: false,   // prevent drag-edit from interfering with click-to-place
+          editable: false,
           styles: {
-            lineStringColor: () => s.linestring.color,
-            lineStringWidth: () => s.linestring.width,
+            lineStringColor: (f) => f.properties.lineStringColor ?? STYLES.linestring.color,
+            lineStringWidth: (f) => f.properties.lineStringWidth ?? STYLES.linestring.width,
           },
         }),
         new TerraDrawPolygonMode({
           styles: {
-            fillColor:    () => s.polygon.fillColor,
-            fillOpacity:  () => s.polygon.fillOpacity,
-            outlineColor: () => s.polygon.outlineColor,
-            outlineWidth: () => s.polygon.outlineWidth,
+            fillColor:    (f) => f.properties.polygonFillColor    ?? STYLES.polygon.fillColor,
+            fillOpacity:  (f) => f.properties.polygonFillOpacity  ?? STYLES.polygon.fillOpacity,
+            outlineColor: (f) => f.properties.polygonOutlineColor ?? STYLES.polygon.outlineColor,
+            outlineWidth: (f) => f.properties.polygonOutlineWidth ?? STYLES.polygon.outlineWidth,
           },
         }),
         new TerraDrawCircleMode({
           styles: {
-            fillColor:    () => s.circle.fillColor,
-            fillOpacity:  () => s.circle.fillOpacity,
-            outlineColor: () => s.circle.outlineColor,
-            outlineWidth: () => s.circle.outlineWidth,
+            fillColor:    (f) => f.properties.polygonFillColor    ?? STYLES.circle.fillColor,
+            fillOpacity:  (f) => f.properties.polygonFillOpacity  ?? STYLES.circle.fillOpacity,
+            outlineColor: (f) => f.properties.polygonOutlineColor ?? STYLES.circle.outlineColor,
+            outlineWidth: (f) => f.properties.polygonOutlineWidth ?? STYLES.circle.outlineWidth,
           },
         }),
         new TerraDrawSelectMode({
@@ -185,37 +199,98 @@ export class DrawPanel {
 
     this._draw.start();
 
-    // In MapLibre ≥5.8 the adapter sets line-dasharray:[] on the td-linestring
-    // layer which makes lines invisible (empty dash pattern = nothing rendered).
-    // Remove the property so the line renders solid.
+    // MapLibre ≥5.8 sets line-dasharray:[] which makes lines invisible
     try { this._map.setPaintProperty('td-linestring', 'line-dasharray', null); } catch (_) {}
+
+    // ── Bake current styles into each feature when it is committed ─────────
+    this._draw.on('finish', (id) => {
+      const feature = this._draw.getSnapshotFeature(id);
+      if (feature) this._bakeStyleToFeature(id, feature.properties?.mode);
+    });
+
+    // ── When a feature is selected: sync style panel to its stored values ──
+    this._draw.on('select', (id) => {
+      this._selectedId = id;
+      const feature = this._draw.getSnapshotFeature(id);
+      if (!feature) return;
+      const mode = feature.properties?.mode;
+      if (!PROP_MAP[mode]) return;  // ignore helper/guidance features
+      this._syncStylesFromFeature(feature);
+      this._renderStyleControls(mode);
+    });
+
+    // ── When deselected: clear selection and reset style area ──────────────
+    this._draw.on('deselect', () => {
+      this._selectedId = null;
+      if (this._active === 'select') {
+        this._styleArea.innerHTML = '';
+        const hint = document.createElement('p');
+        hint.className = 'dp-hint';
+        hint.textContent = 'Click a feature to edit its style.';
+        this._styleArea.appendChild(hint);
+      }
+    });
+  }
+
+  // ── Bake current STYLES into a committed feature's GeoJSON properties ──────
+
+  _bakeStyleToFeature(id, mode) {
+    if (!mode || !PROP_MAP[mode]) return;
+    const s = STYLES[mode];
+    const props = {};
+    for (const [stylesKey, tdKey] of Object.entries(PROP_MAP[mode])) {
+      props[tdKey] = s[stylesKey];
+    }
+    try { this._draw.updateFeatureProperties(id, props); } catch (_) {}
+  }
+
+  // ── Read a feature's stored style back into the global STYLES defaults ─────
+
+  _syncStylesFromFeature(feature) {
+    const p    = feature.properties;
+    const mode = p?.mode;
+    if (!mode) return;
+    if (mode === 'point') {
+      if (p.pointColor        != null) STYLES.point.color        = p.pointColor;
+      if (p.pointWidth        != null) STYLES.point.width        = p.pointWidth;
+      if (p.pointOutlineColor != null) STYLES.point.outlineColor = p.pointOutlineColor;
+    } else if (mode === 'linestring') {
+      if (p.lineStringColor != null) STYLES.linestring.color = p.lineStringColor;
+      if (p.lineStringWidth != null) STYLES.linestring.width = p.lineStringWidth;
+    } else if (mode === 'polygon' || mode === 'circle') {
+      if (p.polygonFillColor    != null) STYLES[mode].fillColor    = p.polygonFillColor;
+      if (p.polygonFillOpacity  != null) STYLES[mode].fillOpacity  = p.polygonFillOpacity;
+      if (p.polygonOutlineColor != null) STYLES[mode].outlineColor = p.polygonOutlineColor;
+      if (p.polygonOutlineWidth != null) STYLES[mode].outlineWidth = p.polygonOutlineWidth;
+    }
   }
 
   // ── Mode toggling ──────────────────────────────────────────────────────────
 
   _toggleMode(mode) {
     if (!this._draw) return;
-
-    if (this._active === mode) {
-      this._deactivate();
-      return;
-    }
-
-    // Deactivate previous
-    if (this._active) {
-      this._modeBtns[this._active].classList.remove('dp-mode-active');
-    }
-
-    this._active = mode;
+    if (this._active === mode) { this._deactivate(); return; }
+    if (this._active) this._modeBtns[this._active].classList.remove('dp-mode-active');
+    this._active     = mode;
+    this._selectedId = null;
     this._draw.setMode(mode);
     this._modeBtns[mode].classList.add('dp-mode-active');
-    this._renderStyleControls(mode);
+    if (mode === 'select') {
+      this._styleArea.innerHTML = '';
+      const hint = document.createElement('p');
+      hint.className = 'dp-hint';
+      hint.textContent = 'Click a feature to edit its style.';
+      this._styleArea.appendChild(hint);
+    } else {
+      this._renderStyleControls(mode);
+    }
   }
 
   _deactivate() {
     if (this._active) {
       this._modeBtns[this._active].classList.remove('dp-mode-active');
-      this._active = null;
+      this._active     = null;
+      this._selectedId = null;
       if (this._draw) this._draw.setMode('static');
     }
     this._styleArea.innerHTML = '';
@@ -225,77 +300,74 @@ export class DrawPanel {
 
   _renderStyleControls(mode) {
     this._styleArea.innerHTML = '';
-
-    if (mode === 'select') return; // no style controls for select
+    if (mode === 'select') return;
 
     const s = STYLES[mode];
 
+    // Called whenever a control changes value
+    const onChange = (stylesKey, value) => {
+      s[stylesKey] = value;
+      if (this._selectedId) {
+        // Edit the selected feature in-place
+        const tdKey = PROP_MAP[mode]?.[stylesKey];
+        if (tdKey) {
+          try { this._draw.updateFeatureProperties(this._selectedId, { [tdKey]: value }); } catch (_) {}
+        }
+        // updateFeatureProperties triggers terra-draw's own re-render; no mode bounce needed
+      } else {
+        this._refreshStyles();
+      }
+    };
+
     const row = (label, control) => {
-      const r = document.createElement('div');
-      r.className = 'dp-row';
-      const lbl = document.createElement('label');
-      lbl.className = 'dp-label';
-      lbl.textContent = label;
+      const r   = document.createElement('div');  r.className = 'dp-row';
+      const lbl = document.createElement('label'); lbl.className = 'dp-label'; lbl.textContent = label;
       r.append(lbl, control);
       this._styleArea.appendChild(r);
     };
 
-    const colorPicker = (key, stateObj) => {
+    const colorPicker = (label, stylesKey) => {
       const inp = document.createElement('input');
-      inp.type = 'color';
-      inp.value = stateObj[key];
-      inp.className = 'dp-color';
-      inp.addEventListener('input', () => {
-        stateObj[key] = inp.value;
-        this._refreshStyles();
-      });
+      inp.type = 'color'; inp.value = s[stylesKey]; inp.className = 'dp-color';
+      inp.addEventListener('input', () => onChange(stylesKey, inp.value));
       return inp;
     };
 
-    const slider = (key, stateObj, min, max, step, suffix = '') => {
-      const wrap = document.createElement('div');
-      wrap.className = 'dp-slider-wrap';
-      const inp = document.createElement('input');
-      inp.type  = 'range';
-      inp.min   = min;
-      inp.max   = max;
-      inp.step  = step;
-      inp.value = stateObj[key];
+    const slider = (label, stylesKey, min, max, step, suffix = '') => {
+      const wrap = document.createElement('div'); wrap.className = 'dp-slider-wrap';
+      const inp  = document.createElement('input');
+      inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = s[stylesKey];
       inp.className = 'dp-slider';
       const val = document.createElement('span');
-      val.className = 'dp-slider-val';
-      val.textContent = stateObj[key] + suffix;
+      val.className = 'dp-slider-val'; val.textContent = s[stylesKey] + suffix;
       inp.addEventListener('input', () => {
-        stateObj[key] = Number(inp.value);
         val.textContent = inp.value + suffix;
-        this._refreshStyles();
+        onChange(stylesKey, Number(inp.value));
       });
       wrap.append(inp, val);
       return wrap;
     };
 
     if (mode === 'point') {
-      row('Color',   colorPicker('color',        s));
-      row('Size',    slider('width',             s, 2, 20, 1, 'px'));
+      row('Color', colorPicker('Color', 'color'));
+      row('Size',  slider('Size', 'width', 2, 20, 1, 'px'));
     }
-
     if (mode === 'linestring') {
-      row('Color',   colorPicker('color',        s));
-      row('Width',   slider('width',             s, 1, 12, 0.5, 'px'));
+      row('Color', colorPicker('Color', 'color'));
+      row('Width', slider('Width', 'width', 1, 12, 0.5, 'px'));
     }
-
     if (mode === 'polygon' || mode === 'circle') {
-      row('Fill',    colorPicker('fillColor',    s));
-      row('Opacity', slider('fillOpacity',       s, 0, 1, 0.05, ''));
-      row('Border',  colorPicker('outlineColor', s));
-      row('B.Width', slider('outlineWidth',      s, 0, 10, 0.5, 'px'));
+      row('Fill',    colorPicker('Fill',    'fillColor'));
+      row('Opacity', slider('Opacity',      'fillOpacity',  0,  1, 0.05));
+      row('Border',  colorPicker('Border',  'outlineColor'));
+      row('B.Width', slider('B.Width',      'outlineWidth', 0, 10, 0.5, 'px'));
     }
   }
 
-  // Return user-drawn features enriched with the current style state.
-  // terra-draw only stores geometry + mode in the store; style values are computed
-  // during rendering into temporary copies that never make it back to the store.
-  // We apply them here so the HTML export has all the paint properties it needs.
+  // ── Export snapshot ────────────────────────────────────────────────────────
+  // Returns committed features, each enriched with its stored per-feature style
+  // properties (falling back to the global STYLES defaults for older features).
+
   getSnapshot() {
     if (!this._draw) return [];
     return this._draw.getSnapshot()
@@ -307,29 +379,29 @@ export class DrawPanel {
       })
       .map(f => {
         const mode = f.properties.mode;
-        const s    = STYLES[mode];
+        const p    = f.properties;
         let styleProps = {};
         if (mode === 'point') {
           styleProps = {
-            pointColor:         s.color,
-            pointWidth:         s.width,
-            pointOutlineColor:  s.outlineColor,
-            pointOutlineWidth:  1,
-            pointOpacity:       1,
-            pointOutlineOpacity:1,
+            pointColor:          p.pointColor         ?? STYLES.point.color,
+            pointWidth:          p.pointWidth         ?? STYLES.point.width,
+            pointOutlineColor:   p.pointOutlineColor  ?? STYLES.point.outlineColor,
+            pointOutlineWidth:   1,
+            pointOpacity:        1,
+            pointOutlineOpacity: 1,
           };
         } else if (mode === 'linestring') {
           styleProps = {
-            lineStringColor:   s.color,
-            lineStringWidth:   s.width,
+            lineStringColor:   p.lineStringColor   ?? STYLES.linestring.color,
+            lineStringWidth:   p.lineStringWidth   ?? STYLES.linestring.width,
             lineStringOpacity: 1,
           };
         } else { // polygon / circle
           styleProps = {
-            polygonFillColor:    s.fillColor,
-            polygonFillOpacity:  s.fillOpacity,
-            polygonOutlineColor: s.outlineColor,
-            polygonOutlineWidth: s.outlineWidth,
+            polygonFillColor:      p.polygonFillColor    ?? STYLES[mode].fillColor,
+            polygonFillOpacity:    p.polygonFillOpacity  ?? STYLES[mode].fillOpacity,
+            polygonOutlineColor:   p.polygonOutlineColor ?? STYLES[mode].outlineColor,
+            polygonOutlineWidth:   p.polygonOutlineWidth ?? STYLES[mode].outlineWidth,
             polygonOutlineOpacity: 1,
           };
         }
@@ -337,9 +409,10 @@ export class DrawPanel {
       });
   }
 
-  // Force terra-draw to re-render features with updated style closures
+  // Force terra-draw to re-render in-progress drawing with updated style closures.
+  // Only needed for drawing modes — select mode updates via setFeatureProperty.
   _refreshStyles() {
-    if (!this._draw || !this._active) return;
+    if (!this._draw || !this._active || this._active === 'select') return;
     this._draw.setMode('static');
     this._draw.setMode(this._active);
   }
