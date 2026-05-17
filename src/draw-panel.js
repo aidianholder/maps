@@ -139,6 +139,25 @@ export class DrawPanel {
     } else {
       this._map.once('load', () => this._initDraw());
     }
+
+    // When the basemap style is swapped, MapLibre removes ALL custom layers and
+    // sources — including terra-draw's td-* sources.  The adapter then throws
+    // "can't access property setData ... is undefined" on the next render.
+    // Fix: detect the style change and reinitialise terra-draw from scratch.
+    // Drawn features are lost, but terra-draw is immediately usable on the
+    // new basemap.
+    this._map.on('style.load', () => {
+      if (!this._draw) return; // first load already handled above
+      try { this._draw.stop(); } catch (_) {}
+      this._draw       = null;
+      this._selectedId = null;
+      if (this._active) {
+        this._modeBtns[this._active]?.classList.remove('dp-mode-active');
+        this._active = null;
+      }
+      this._styleArea.innerHTML = '';
+      this._initDraw();
+    });
   }
 
   // ── Terra-draw setup ───────────────────────────────────────────────────────
