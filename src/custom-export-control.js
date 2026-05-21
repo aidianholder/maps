@@ -901,7 +901,12 @@ export class CustomExportControl {
   }
 
   _buildSizeSelect() {
-    const sizes = { ...Object.fromEntries(Object.entries(Size)), 'Custom…': CUSTOM_KEY };
+    const sizes = {
+      ...Object.fromEntries(Object.entries(Size)),
+      '1 column': [42, 84],
+      '2 column': [87, 75],
+      'Custom…': CUSTOM_KEY,
+    };
 
     const sel = this._select('mapbox-gl-export-page-size', sizes, this._options.PageSize);
 
