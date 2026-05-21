@@ -255,6 +255,8 @@ Click the **printer icon** (top-right). In the export panel:
 
 > **For breaking news where speed matters:** JPEG at 150 DPI produces a smaller file and uploads faster.
 
+See Part 9 for important copyright notice for photo/pdf exports.
+
 ### Embeddable HTML map
 
 The HTML export generates a fully self-contained interactive map that you can paste into a CMS or host on any web server.
@@ -268,6 +270,20 @@ In the export panel, choose **HTML** from the Format dropdown and click **Genera
 - Has `width: 100%` so it scales to any column width
 
 Drop the file into your CMS's HTML embed block, or send it to your web team to host at a URL.
+
+---
+## Step 9 — Copyright Notice
+
+### PDF and image exports
+
+If you use a pdf or image export you must add a line indicating the source of the map data.
+The map tiles are courtesy OpenFreeMap and the OpenMapTiles data is copyright OpenStreetMap contributors.
+I didn't hardcode it on the image/pdf to not obscure the map, but you must add a line below the map indicating the coopyright of the soure.
+If you don't you're violating the law, but you're also a bad person who is screwing over people who generously shared their hard work with you.
+
+### HTML Exports
+
+The requisite copyright and courtesy is already included along the bottom of the map.
 
 ---
 
