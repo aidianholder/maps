@@ -1141,6 +1141,7 @@ export class CustomExportControl {
             textColor,
             haloColor,
             haloWidth,
+            isDark,
           },
         }];
       });
@@ -1247,7 +1248,8 @@ ${iconLayersJs}` : '';
     const locatorJs = hasLocators ? locatorFeatures.map(f => {
       const [lng, lat] = f.geometry.coordinates;
       const html = f.properties.text.replace(/\n/g, '<br>');
-      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}' })
+      const darkClass = f.properties.isDark ? ' lm-popup-dark' : '';
+      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}', className: '${darkClass.trim()}' })
             .setLngLat([${lng}, ${lat}])
             .setHTML(${JSON.stringify(html)})
             .addTo(map);`;
@@ -1263,6 +1265,17 @@ ${iconLayersJs}` : '';
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         #map { width: 100%; max-width: ${maxW}px; height: ${mapH}px; }
+        .maplibregl-popup-content { padding: 5px 10px; }
+        .maplibregl-popup-tip { border-left-width: 5px; border-right-width: 5px; }
+        .lm-popup-dark .maplibregl-popup-content { background: #000; color: #fff; }
+        .lm-popup-dark.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+        .lm-popup-dark.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+        .lm-popup-dark.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: #000; }
+        .lm-popup-dark.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+        .lm-popup-dark.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+        .lm-popup-dark.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #000; }
+        .lm-popup-dark.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #000; }
+        .lm-popup-dark.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #000; }
     </style>
 </head>
 <body>
