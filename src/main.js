@@ -40,6 +40,7 @@ const map = new maplibregl.Map({
   center: CENTER,
   zoom: ZOOM,
 });
+window.__map = map;
 
 map.addControl(new maplibregl.NavigationControl(), 'top-left');
 map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right');

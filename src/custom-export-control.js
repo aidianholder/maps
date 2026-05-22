@@ -497,6 +497,11 @@ const CUSTOM_KEY = '__custom__';
 const MM_PER_INCH = 25.4;
 const SCREEN_DPI  = 96;
 
+const FENCE_SOURCE  = 'export-fence';
+const FENCE_LAYER   = 'export-fence';
+const FENCE_SPACING = 10;  // px between fence posts along each edge
+const FENCE_PADDING = 20;  // text-padding px — sets collision box radius
+
 const DEFAULT_OPTIONS = {
   PageSize: Size.LETTER,
   PageOrientation: PageOrientation.Landscape,
@@ -556,6 +561,8 @@ export class CustomExportControl {
       e.stopPropagation();
       const opening = this._panel.style.display !== 'block';
       this._panel.style.display = opening ? 'block' : 'none';
+      if (opening) { this._fenceActive = true;  this._addFence(); }
+      else         { this._fenceActive = false; this._removeFence(); }
     });
 
     // Floating panel
@@ -584,6 +591,8 @@ export class CustomExportControl {
       }
       if (!this._container.contains(e.target)) {
         this._panel.style.display = 'none';
+        this._fenceActive = false;
+        this._removeFence();
       }
     };
     document.addEventListener('click', this._outsideClick);
@@ -592,13 +601,29 @@ export class CustomExportControl {
     this._createOverlay();
     if (this._map.loaded()) {
       this._showOverlay();
+      this._initFenceLayer();
     } else {
-      this._map.once('load', () => this._showOverlay());
+      this._map.once('load', () => { this._showOverlay(); this._initFenceLayer(); });
     }
 
     // Keep overlay in sync with map resizes
     this._onResize = () => { if (this._overlayVisible) this._updateOverlay(); };
     this._map.on('resize', this._onResize);
+
+    // Re-init fence layer after style swaps (addSource/addLayer are lost on style reload)
+    this._onStyleData = () => {
+      if (typeof this._initFenceLayer !== 'function') return;
+      this._initFenceLayer();
+      if (this._fenceActive) this._addFence();
+    };
+    this._map.on('styledata', this._onStyleData);
+
+    // Remove fence while map is moving (geographic coords would drift from overlay),
+    // then rebuild once the camera settles.
+    this._onMoveStart = () => this._removeFence();
+    this._onMoveEnd   = () => { if (this._fenceActive) this._addFence(); };
+    this._map.on('movestart', this._onMoveStart);
+    this._map.on('moveend',   this._onMoveEnd);
 
     return this._container;
   }
@@ -606,7 +631,11 @@ export class CustomExportControl {
   onRemove() {
     document.removeEventListener('click', this._outsideClick);
     this._map.getContainer().removeEventListener('mapstylechange', this._onStyleChange);
-    this._map.off('resize', this._onResize);
+    this._map.off('resize',     this._onResize);
+    this._map.off('styledata',  this._onStyleData);
+    this._map.off('movestart',  this._onMoveStart);
+    this._map.off('moveend',    this._onMoveEnd);
+    this._removeFenceLayer();
     this._overlay?.remove();
     for (const el of Object.values(this._handleEls ?? {})) el.remove();
     document.removeEventListener('mousemove', this._onMouseMove);
@@ -704,6 +733,78 @@ export class CustomExportControl {
     for (const el of Object.values(this._handleEls)) el.style.display = 'none';
   }
 
+  // ── Collision fence ────────────────────────────────────────────────────────
+
+  _initFenceLayer() {
+    if (!this._map || this._map.getSource(FENCE_SOURCE)) return;
+    this._map.addSource(FENCE_SOURCE, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+    this._map.addLayer({
+      id: FENCE_LAYER,
+      type: 'symbol',
+      source: FENCE_SOURCE,
+      layout: {
+        'text-field':            ' ',
+        'text-size':             1,
+        'text-allow-overlap':    true,   // fence posts always placed
+        'text-ignore-placement': false,  // they block other labels
+        'text-padding':          FENCE_PADDING,
+        'text-font':             this._detectStyleFont(),
+      },
+      paint: { 'text-opacity': 0 },
+    });
+  }
+
+  _removeFenceLayer() {
+    if (!this._map) return;
+    if (this._map.getLayer(FENCE_LAYER))   this._map.removeLayer(FENCE_LAYER);
+    if (this._map.getSource(FENCE_SOURCE)) this._map.removeSource(FENCE_SOURCE);
+  }
+
+  _addFence() {
+    const src = this._map?.getSource(FENCE_SOURCE);
+    if (!src) return;
+
+    const x     = parseFloat(this._maskHole.getAttribute('x'));
+    const y     = parseFloat(this._maskHole.getAttribute('y'));
+    const rectW = parseFloat(this._maskHole.getAttribute('width'));
+    const rectH = parseFloat(this._maskHole.getAttribute('height'));
+    if (isNaN(x) || isNaN(y)) return;
+
+    const features = [];
+    const addPoint = (px, py) => {
+      const { lng, lat } = this._map.unproject([px, py]);
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lng, lat] },
+        properties: {},
+      });
+    };
+
+    const stepsX = Math.ceil(rectW / FENCE_SPACING);
+    for (let i = 0; i <= stepsX; i++) {
+      const px = x + (i / stepsX) * rectW;
+      addPoint(px, y);           // top edge
+      addPoint(px, y + rectH);   // bottom edge
+    }
+    // Left and right edges — corners already added above
+    const stepsY = Math.ceil(rectH / FENCE_SPACING);
+    for (let i = 1; i < stepsY; i++) {
+      const py = y + (i / stepsY) * rectH;
+      addPoint(x,          py);  // left edge
+      addPoint(x + rectW,  py);  // right edge
+    }
+
+    src.setData({ type: 'FeatureCollection', features });
+  }
+
+  _removeFence() {
+    const src = this._map?.getSource(FENCE_SOURCE);
+    if (src) src.setData({ type: 'FeatureCollection', features: [] });
+  }
+
   _updateOverlay() {
     const mapContainer = this._map.getContainer();
     const vw = mapContainer.offsetWidth;
@@ -765,6 +866,7 @@ export class CustomExportControl {
     this._dragState = { corner, containerRect: mapContainer.getBoundingClientRect() };
     document.addEventListener('mousemove', this._onMouseMove);
     document.addEventListener('mouseup',   this._onMouseUp);
+    this._removeFence();
   }
 
   _dragMove(e) {
@@ -815,6 +917,7 @@ export class CustomExportControl {
     // Suppress the click that fires after mouseup so the overlay stays visible
     this._suppressNextOutsideClick = true;
     setTimeout(() => { this._suppressNextOutsideClick = false; }, 100);
+    if (this._fenceActive) this._addFence();
   }
 
   _getCurrentExportSize() {
