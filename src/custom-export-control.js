@@ -500,7 +500,7 @@ const SCREEN_DPI  = 96;
 const FENCE_SOURCE  = 'export-fence';
 const FENCE_LAYER   = 'export-fence';
 const FENCE_SPACING = 10;  // px between fence posts along each edge
-const FENCE_PADDING = 20;  // text-padding px — sets collision box radius
+const FENCE_PADDING = 5;  // text-padding px — sets collision box radius
 
 const DEFAULT_OPTIONS = {
   PageSize: Size.LETTER,
@@ -746,14 +746,14 @@ export class CustomExportControl {
       type: 'symbol',
       source: FENCE_SOURCE,
       layout: {
-        'text-field':            ' ',
-        'text-size':             1,
+        'text-field':            'X',
+        'text-size':             10,
         'text-allow-overlap':    true,   // fence posts always placed
         'text-ignore-placement': false,  // they block other labels
         'text-padding':          FENCE_PADDING,
         'text-font':             this._detectStyleFont(),
       },
-      paint: { 'text-opacity': 0 },
+      paint: { 'text-color': 'transparent' },
     });
   }
 
