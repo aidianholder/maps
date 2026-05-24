@@ -9,7 +9,7 @@ import maplibregl from 'maplibre-gl';
 
 // ─── Google Fonts ─────────────────────────────────────────────────────────────
 
-const FONTS = [
+export const FONTS = [
   { label: 'Inter',             value: 'Inter' },
   { label: 'Roboto',            value: 'Roboto' },
   { label: 'Oswald',            value: 'Oswald' },
@@ -20,15 +20,23 @@ const FONTS = [
   { label: 'Merriweather',      value: 'Merriweather' },
   { label: 'Source Sans 3',     value: 'Source+Sans+3' },
   { label: 'Bebas Neue',        value: 'Bebas+Neue' },
+  { label: 'Helvetica BlkCond', value: 'helveticaltstd-blkcond' },
+  { label: 'Helvetica Cond',    value: 'helveticaltstd-cond-webfont' },
+  { label: 'Helvetica Bold',    value: 'helveticaltstd-bold' },
 ];
 
-function loadFont(value) {
-  const id = `gf-${value}`;
+export function loadFont(value) {
+  const id = `gf-${value.replace(/[^a-zA-Z0-9]/g, '-')}`;
   if (document.getElementById(id)) return;
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${value}:wght@400;700&display=swap`;
+
+  if (value.startsWith('helveticaltstd')) {
+    link.href = `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/font/${value}.woff2`;
+  } else {
+    link.href = `https://fonts.googleapis.com/css2?family=${value}:wght@400;700&display=swap`;
+  }
   document.head.appendChild(link);
 }
 

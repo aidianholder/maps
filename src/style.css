@@ -951,6 +951,51 @@ details[open] > .section-header::before {
   resize: vertical;
 }
 
+/* ── New Infowindow Editor Controls ────────────────────────────────────────── */
+
+.iw-editor-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.iw-select {
+  flex: 1;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+}
+
+.iw-size-input {
+  width: 50px;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+}
+
+.iw-align-wrap {
+  display: flex;
+  gap: 2px;
+}
+
+.iw-align-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.iw-align-active {
+  background: #3b82f6 !important;
+  color: #fff !important;
+  border-color: #2563eb !important;
+}
+
 .iw-editor-btns {
   display: flex;
   justify-content: flex-end;

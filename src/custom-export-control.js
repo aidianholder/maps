@@ -1176,6 +1176,9 @@ export class CustomExportControl {
             iwTitle:   el.dataset.iwTitle   || '',
             iwSubhead: el.dataset.iwSubhead || '',
             iwText:    el.dataset.iwText    || '',
+            iwFont:    el.dataset.iwFont    || 'Inter',
+            iwSize:    parseFloat(el.dataset.iwSize) || 14,
+            iwAlign:   el.dataset.iwAlign   || 'left',
           },
         };
       });
@@ -1186,6 +1189,25 @@ export class CustomExportControl {
   _buildHtml({ center, zoom, styleUrl, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures = [] }) {
     const hasLocators = locatorFeatures.length > 0;
     const hasIcons    = iconFeatures.length > 0;
+
+    // Detect all fonts used across locators and infowindows
+    const usedFonts = new Set();
+    locatorFeatures.forEach(f => {
+      // Locator features don't currently store the font value in properties, 
+      // but they are already loaded in the main app. 
+      // However, for HTML export, we should probably ensure they are linked.
+      // For now, let's focus on Infowindow fonts which we just added.
+    });
+    iconFeatures.forEach(f => {
+      if (f.properties.iwFont) usedFonts.add(f.properties.iwFont);
+    });
+
+    const fontLinks = Array.from(usedFonts).map(f => {
+      if (f.startsWith('helveticaltstd')) {
+        return `<style>@font-face { font-family: "${f}"; src: url("https://vectortiles.nyc3.cdn.digitaloceanspaces.com/font/${f}.woff2") format("woff2"); }</style>`;
+      }
+      return `<link href="https://fonts.googleapis.com/css2?family=${f.replace(/ /g, '+')}:wght@400;700&display=swap" rel="stylesheet">`;
+    }).join('\n    ');
 
     // ── Terra-draw feature layers ──────────────────────────────────────────
     const tdPoints    = drawFeatures.filter(f => f.geometry.type === 'Point');
@@ -1254,7 +1276,7 @@ ${iconLayersJs}
         const _iwPanel = document.createElement('div');
         _iwPanel.id = 'iw-panel';
         _iwPanel.style.cssText = 'display:none;position:absolute;bottom:0;left:0;right:0;max-height:${Math.round(mapH / 3)}px;background:#fff;overflow-y:auto;padding:16px 20px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);box-sizing:border-box;';
-        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-size:1.15em;font-weight:700;margin-bottom:4px;"></div><div id="iw-p-subhead" style="font-size:.9em;color:#555;margin-bottom:10px;"></div><div id="iw-p-text" style="font-size:.9em;white-space:pre-wrap;"></div>';
+        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-weight:700;margin-bottom:0;"></div><div id="iw-p-subhead" style="color:#555;margin-bottom:0;white-space:pre-wrap;"></div><div id="iw-p-text" style="font-size:.9em;white-space:pre-wrap;margin-top:10px;"></div>';
         map.getContainer().appendChild(_iwPanel);
 
         let _iwConsumed = false;
@@ -1297,9 +1319,22 @@ ${iconLayersJs}
                 // and we are using unique icon layers, we filter the highlight layer by icon property
                 map.setFilter('map-icons-highlight', ['==', ['get', 'icon'], p.icon]);
 
-                document.getElementById('iw-p-title').textContent   = p.iwTitle   || '';
-                document.getElementById('iw-p-subhead').textContent = p.iwSubhead || '';
-                document.getElementById('iw-p-text').textContent    = p.iwText    || '';
+                const titleEl = document.getElementById('iw-p-title');
+                const subheadEl = document.getElementById('iw-p-subhead');
+                const textEl = document.getElementById('iw-p-text');
+
+                titleEl.textContent   = p.iwTitle   || '';
+                subheadEl.textContent = p.iwSubhead || '';
+                textEl.textContent    = p.iwText    || '';
+
+                const displayFont = (p.iwFont || 'Inter').replace(/\\+/g, ' ');
+                _iwPanel.style.fontFamily = '"' + displayFont + '", sans-serif';
+                _iwPanel.style.textAlign  = p.iwAlign || 'left';
+                
+                titleEl.style.fontSize = (p.iwSize * 1.2) + 'px';
+                subheadEl.style.fontSize = (p.iwSize * 0.95) + 'px';
+                textEl.style.fontSize = (p.iwSize * 0.9) + 'px';
+
                 _iwPanel.style.display = 'block';
             }
         });` : '';
@@ -1319,6 +1354,7 @@ ${iconLayersJs}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    ${fontLinks}
     <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
     <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"><\/script>
     <style>

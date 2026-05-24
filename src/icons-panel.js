@@ -3,6 +3,7 @@
 
 import maplibregl from 'maplibre-gl';
 import makiLayout from 'maki/layouts/all.json';
+import { FONTS, loadFont } from './locator-panel.js';
 
 // Use 15px icons by default
 const ICON_SIZE = 15;
@@ -119,12 +120,76 @@ export class IconsPanel {
     };
 
     this._iwTitle   = makeField('Title');
-    this._iwSubhead = makeField('Subhead');
+    this._iwSubhead = makeField('Subhead', 'textarea');
     this._iwText    = makeField('Text', 'textarea');
 
-    // Reuse font, size and align controls from previous work if they exist
-    // (They were added in a previous issue, let's make sure they are in this panel)
-    
+    // ── Font controls for Infowindow ──────────────────────────────
+    const iwControls = document.createElement('div');
+    iwControls.className = 'iw-editor-controls';
+
+    // Font family
+    const fontRow = document.createElement('div');
+    fontRow.className = 'iw-editor-row';
+    const fontLabel = document.createElement('label');
+    fontLabel.textContent = 'Font';
+    const fontSel = document.createElement('select');
+    fontSel.className = 'iw-select';
+    FONTS.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.value;
+      opt.textContent = f.label;
+      opt.style.fontFamily = `"${f.label}", sans-serif`;
+      fontSel.appendChild(opt);
+    });
+    fontSel.addEventListener('change', () => {
+      loadFont(fontSel.value);
+    });
+    fontRow.append(fontLabel, fontSel);
+
+    // Font size
+    const iwSizeRow = document.createElement('div');
+    iwSizeRow.className = 'iw-editor-row';
+    const iwSizeLabel = document.createElement('label');
+    iwSizeLabel.textContent = 'Size';
+    const sizeInput = document.createElement('input');
+    sizeInput.type = 'number';
+    sizeInput.min = 8;
+    sizeInput.max = 72;
+    sizeInput.value = 14;
+    sizeInput.className = 'iw-size-input';
+    iwSizeRow.append(iwSizeLabel, sizeInput);
+
+    // Text alignment
+    const alignRow = document.createElement('div');
+    alignRow.className = 'iw-editor-row';
+    const alignLabel = document.createElement('label');
+    alignLabel.textContent = 'Align';
+    const alignWrap = document.createElement('div');
+    alignWrap.className = 'iw-align-wrap';
+
+    this._iwAlignBtns = {};
+    for (const [val, label] of [['left', 'L'], ['center', 'C'], ['right', 'R']]) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = label;
+      btn.className = 'iw-align-btn';
+      btn.title = `Align ${val}`;
+      btn.addEventListener('click', () => {
+        Object.values(this._iwAlignBtns).forEach(b => b.classList.remove('iw-align-active'));
+        btn.classList.add('iw-align-active');
+        this._iwAlign = val;
+      });
+      alignWrap.appendChild(btn);
+      this._iwAlignBtns[val] = btn;
+    }
+    this._iwAlign = 'left';
+    this._iwAlignBtns['left'].classList.add('iw-align-active');
+    alignRow.append(alignLabel, alignWrap);
+
+    iwControls.append(fontRow, iwSizeRow, alignRow);
+    this._iwFontSel = fontSel;
+    this._iwSizeInput = sizeInput;
+
     const btns = document.createElement('div');
     btns.className = 'iw-editor-btns';
 
@@ -137,9 +202,9 @@ export class IconsPanel {
       this._activeEl.dataset.iwTitle   = this._iwTitle.value;
       this._activeEl.dataset.iwSubhead = this._iwSubhead.value;
       this._activeEl.dataset.iwText    = this._iwText.value;
-      
-      // Keep existing data attributes if they were set by other controls
-      // (like font, fontSize, align)
+      this._activeEl.dataset.iwFont    = this._iwFontSel.value;
+      this._activeEl.dataset.iwSize    = this._iwSizeInput.value;
+      this._activeEl.dataset.iwAlign   = this._iwAlign;
     });
 
     const clearBtn = document.createElement('button');
@@ -151,15 +216,23 @@ export class IconsPanel {
       delete this._activeEl.dataset.iwTitle;
       delete this._activeEl.dataset.iwSubhead;
       delete this._activeEl.dataset.iwText;
-      // Do we clear font/align too? User said "the infowindow should be deleted"
-      // Let's stick to the content for now.
+      delete this._activeEl.dataset.iwFont;
+      delete this._activeEl.dataset.iwSize;
+      delete this._activeEl.dataset.iwAlign;
+
       this._iwTitle.value   = '';
       this._iwSubhead.value = '';
       this._iwText.value    = '';
+      this._iwFontSel.value = 'Inter';
+      this._iwSizeInput.value = 14;
+      this._iwAlign = 'left';
+      Object.values(this._iwAlignBtns).forEach(b => b.classList.remove('iw-align-active'));
+      this._iwAlignBtns['left'].classList.add('iw-align-active');
     });
 
     btns.append(enterBtn, clearBtn);
     this._iwPanel.appendChild(fields);
+    this._iwPanel.appendChild(iwControls);
     this._iwPanel.appendChild(btns);
     document.body.appendChild(this._iwPanel);
 
@@ -281,6 +354,13 @@ export class IconsPanel {
     this._iwTitle.value   = el.dataset.iwTitle   || '';
     this._iwSubhead.value = el.dataset.iwSubhead || '';
     this._iwText.value    = el.dataset.iwText    || '';
+    this._iwFontSel.value = el.dataset.iwFont    || 'Inter';
+    this._iwSizeInput.value = el.dataset.iwSize  || 14;
+    this._iwAlign = el.dataset.iwAlign || 'left';
+    Object.values(this._iwAlignBtns).forEach(b => b.classList.remove('iw-align-active'));
+    if (this._iwAlignBtns[this._iwAlign]) {
+      this._iwAlignBtns[this._iwAlign].classList.add('iw-align-active');
+    }
     this._iwPanel.style.display = 'block';
   }
 

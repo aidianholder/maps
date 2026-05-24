@@ -1254,7 +1254,7 @@
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "transportation_name",
-      "minzoom": 11,
+      "minzoom": 9,
       "filter": [
         "all",
         ["<=", ["get", "ref_length"], 6],
@@ -1290,7 +1290,7 @@
       "type": "symbol",
       "source": "openmaptiles",
       "source-layer": "transportation_name",
-      "minzoom": 10,
+      "minzoom": 8,
       "filter": [
         "all",
         ["<=", ["get", "ref_length"], 6],
@@ -1414,7 +1414,8 @@
           10,
           11,
           12
-        ]
+        ],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "#000",
@@ -1525,7 +1526,8 @@
           13,
           11,
           18
-        ]
+        ],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "#000",
