@@ -1170,7 +1170,13 @@ export class CustomExportControl {
             parseFloat(el.getAttribute('data-lng')),
             parseFloat(el.getAttribute('data-lat')),
           ]},
-          properties: { icon: el.dataset.icon + '-icon', iconSize },
+          properties: {
+            icon: el.dataset.icon + '-icon',
+            iconSize,
+            iwTitle:   el.dataset.iwTitle   || '',
+            iwSubhead: el.dataset.iwSubhead || '',
+            iwText:    el.dataset.iwText    || '',
+          },
         };
       });
 
@@ -1243,7 +1249,60 @@ export class CustomExportControl {
             type: 'geojson',
             data: ${JSON.stringify({ type: 'FeatureCollection', features: iconFeatures }, null, 12)},
         });
-${iconLayersJs}` : '';
+${iconLayersJs}
+
+        const _iwPanel = document.createElement('div');
+        _iwPanel.id = 'iw-panel';
+        _iwPanel.style.cssText = 'display:none;position:absolute;bottom:0;left:0;right:0;max-height:${Math.round(mapH / 3)}px;background:#fff;overflow-y:auto;padding:16px 20px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);box-sizing:border-box;';
+        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-size:1.15em;font-weight:700;margin-bottom:4px;"></div><div id="iw-p-subhead" style="font-size:.9em;color:#555;margin-bottom:10px;"></div><div id="iw-p-text" style="font-size:.9em;white-space:pre-wrap;"></div>';
+        map.getContainer().appendChild(_iwPanel);
+
+        let _iwConsumed = false;
+        map.on('click', () => {
+            if (!_iwConsumed) {
+                _iwPanel.style.display = 'none';
+                map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
+            }
+            _iwConsumed = false;
+        });
+
+        // Add highlight layer
+        map.addLayer({
+            id: 'map-icons-highlight',
+            type: 'circle',
+            source: 'map-icons',
+            filter: ['==', ['id'], 'none'],
+            paint: {
+                'circle-radius': ['+', ['*', ['get', 'iconSize'], 10], 4],
+                'circle-color': 'rgba(59, 130, 246, 0.2)',
+                'circle-stroke-color': '#3b82f6',
+                'circle-stroke-width': 2
+            }
+        }, '${uniqueIcons[0]}');
+
+        map.on('click', (e) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ${JSON.stringify(uniqueIcons)} });
+            if (features.length > 0) {
+                _iwConsumed = true;
+                const f = features[0];
+                const p = f.properties;
+                if (!p.iwTitle && !p.iwSubhead && !p.iwText) {
+                    _iwPanel.style.display = 'none';
+                    map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
+                    return;
+                }
+                
+                // Highlight
+                // Since MapLibre features don't have stable IDs unless specified in GeoJSON,
+                // and we are using unique icon layers, we filter the highlight layer by icon property
+                map.setFilter('map-icons-highlight', ['==', ['get', 'icon'], p.icon]);
+
+                document.getElementById('iw-p-title').textContent   = p.iwTitle   || '';
+                document.getElementById('iw-p-subhead').textContent = p.iwSubhead || '';
+                document.getElementById('iw-p-text').textContent    = p.iwText    || '';
+                _iwPanel.style.display = 'block';
+            }
+        });` : '';
 
     const locatorJs = hasLocators ? locatorFeatures.map(f => {
       const [lng, lat] = f.geometry.coordinates;

@@ -92,6 +92,77 @@ export class IconsPanel {
     this._panel.appendChild(grid);
     container.appendChild(this._panel);
 
+    // ── Infowindow Editor (Bottom Overlay) ───────────────────────────────────
+    this._iwPanel = document.createElement('div');
+    this._iwPanel.id = 'iw-editor';
+    this._iwPanel.style.display = 'none';
+
+    const iwHeader = document.createElement('div');
+    iwHeader.className = 'iw-editor-header';
+    iwHeader.textContent = 'Infowindow';
+    this._iwPanel.appendChild(iwHeader);
+
+    const fields = document.createElement('div');
+    fields.className = 'iw-editor-fields';
+
+    const makeField = (label, tag = 'input') => {
+      const row = document.createElement('div');
+      row.className = 'iw-editor-row';
+      const lbl = document.createElement('label');
+      lbl.textContent = label;
+      const input = document.createElement(tag);
+      if (tag === 'input') input.type = 'text';
+      input.addEventListener('click', e => e.stopPropagation());
+      row.append(lbl, input);
+      fields.appendChild(row);
+      return input;
+    };
+
+    this._iwTitle   = makeField('Title');
+    this._iwSubhead = makeField('Subhead');
+    this._iwText    = makeField('Text', 'textarea');
+
+    // Reuse font, size and align controls from previous work if they exist
+    // (They were added in a previous issue, let's make sure they are in this panel)
+    
+    const btns = document.createElement('div');
+    btns.className = 'iw-editor-btns';
+
+    const enterBtn = document.createElement('button');
+    enterBtn.textContent = 'enter';
+    enterBtn.className = 'iw-btn-enter';
+    enterBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!this._activeEl) return;
+      this._activeEl.dataset.iwTitle   = this._iwTitle.value;
+      this._activeEl.dataset.iwSubhead = this._iwSubhead.value;
+      this._activeEl.dataset.iwText    = this._iwText.value;
+      
+      // Keep existing data attributes if they were set by other controls
+      // (like font, fontSize, align)
+    });
+
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'clear';
+    clearBtn.className = 'iw-btn-clear';
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!this._activeEl) return;
+      delete this._activeEl.dataset.iwTitle;
+      delete this._activeEl.dataset.iwSubhead;
+      delete this._activeEl.dataset.iwText;
+      // Do we clear font/align too? User said "the infowindow should be deleted"
+      // Let's stick to the content for now.
+      this._iwTitle.value   = '';
+      this._iwSubhead.value = '';
+      this._iwText.value    = '';
+    });
+
+    btns.append(enterBtn, clearBtn);
+    this._iwPanel.appendChild(fields);
+    this._iwPanel.appendChild(btns);
+    document.body.appendChild(this._iwPanel);
+
     // Deselect on map click outside an icon
     this._map.on('click', (e) => {
       if (!e.originalEvent.target.closest?.('.map-icon')) this._deselectIcon();
@@ -205,6 +276,12 @@ export class IconsPanel {
       this._sizeSlider.value   = size;
       this._sizeValEl.textContent = `${size}px`;
     }
+
+    // Populate and show Infowindow editor
+    this._iwTitle.value   = el.dataset.iwTitle   || '';
+    this._iwSubhead.value = el.dataset.iwSubhead || '';
+    this._iwText.value    = el.dataset.iwText    || '';
+    this._iwPanel.style.display = 'block';
   }
 
   _deselectIcon() {
@@ -212,6 +289,7 @@ export class IconsPanel {
       this._activeEl.classList.remove('map-icon-selected');
       this._activeEl = null;
     }
+    if (this._iwPanel) this._iwPanel.style.display = 'none';
   }
 
   _resizeIcon(el, size) {
