@@ -214,6 +214,51 @@ const POSITRON_GROUPS = [
     layers: ['railway_transit', 'railway_transit_dashline'] },
 ];
 
+const NEWSPRINT_GROUPS = [
+  { displayName: 'parks',               layers: ['park'] },
+  { displayName: 'woodland',            layers: ['landcover_wood'] },
+  { displayName: 'ice/glaciers',        layers: ['landcover_ice_shelf', 'landcover_glacier'] },
+  { displayName: 'water',               layers: ['water'] },
+  { displayName: 'waterways',           layers: ['waterway'] },
+  { displayName: 'building footprints', layers: ['building'] },
+  { displayName: 'airports',
+    layers: ['aeroway-area', 'aeroway-runway-casing', 'aeroway-runway', 'aeroway-taxiway'] },
+  { displayName: 'boundaries: state',   layers: ['boundary_3'] },
+  { displayName: 'boundaries: country', layers: ['boundary_2'] },
+  { displayName: 'boundaries: disputed', layers: ['boundary_disputed'] },
+  { displayName: 'labels: water',
+    layers: ['waterway_line_label', 'water_name_point_label', 'water_name_line_label'] },
+  { displayName: 'labels: minor roads', layers: ['highway-name-minor'] },
+  { displayName: 'labels: major roads', layers: ['highway-name-major'] },
+  { displayName: 'highway shields',
+    layers: ['highway-shield-non-us', 'highway-shield-us-interstate', 'road_shield_us'] },
+  { displayName: 'airport labels',      layers: ['airport'] },
+  { displayName: 'neighborhoods',        layers: ['label_other'] },
+  { displayName: 'villages',            layers: ['label_village'] },
+  { displayName: 'towns',               layers: ['label_town'] },
+  { displayName: 'cities',              layers: ['label_city', 'label_city_capital'] },
+  { displayName: 'labels: states',      layers: ['label_state'] },
+  { displayName: 'labels: country',
+    layers: ['label_country_1', 'label_country_2', 'label_country_3'] },
+
+  // Road groups
+  { displayName: 'highways',
+    layers: [
+      'tunnel_motorway_casing',          'tunnel_motorway_inner',
+      'highway_motorway_casing',         'highway_motorway_inner', 'highway_motorway_subtle',
+      'highway_motorway_bridge_casing',  'highway_motorway_bridge_inner',
+      'highway_motorway_inner-copy',      'highway_ramps',
+    ] },
+  { displayName: 'major roads',
+    layers: ['highway_major_casing', 'highway_major_inner', 'highway_major_subtle'] },
+  { displayName: 'minor roads',         layers: ['highway_minor'] },
+  { displayName: 'paths/trails',        layers: ['highway_path'] },
+  { displayName: 'rail',
+    layers: ['railway', 'railway_dashline', 'railway_service', 'railway_service_dashline'] },
+  { displayName: 'transit rail',
+    layers: ['railway_transit', 'railway_transit_dashline'] },
+];
+
 // ─── AWS ─────────────────────────────────────────────────────────────────────
 
 const AWS_GROUPS = [
@@ -374,6 +419,23 @@ const POSITRON_SECTIONS = [
   ]},
 ];
 
+const NEWSPRINT_SECTIONS = [
+  { name: 'Natural & Land', entries: [
+    'parks', 'woodland', 'ice/glaciers', 'water', 'waterways', 'airports', 'building footprints',
+  ]},
+  { name: 'Roads & Transit', entries: [
+    'highways', 'major roads', 'minor roads', 'paths/trails', 'rail', 'transit rail',
+  ]},
+  { name: 'Boundaries', entries: [
+    'boundaries: country', 'boundaries: state', 'boundaries: disputed',
+  ]},
+  { name: 'Places & Labels', entries: [
+    'airport labels', 'neighborhoods', 'cities', 'towns', 'villages',
+    'labels: states', 'labels: country',
+    'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
+  ]},
+];
+
 const AWS_SECTIONS = [
   { name: 'Natural & Land', entries: [
     'parks/greenspace', 'reservations', 'beach/sand', 'ice/glaciers',
@@ -433,8 +495,8 @@ export const STYLE_CONFIGS = [
   {
     // Newsprint: same layer structure as Positron, identified by its name field
     test: style => style.name === 'newsprint',
-    groups: POSITRON_GROUPS,
-    sections: POSITRON_SECTIONS,
+    groups: NEWSPRINT_GROUPS,
+    sections: NEWSPRINT_SECTIONS,
     hidden: [
       'background',
       'landuse_residential',
