@@ -14,6 +14,10 @@
     "openmaptiles": {
       "type": "vector",
       "url": "https://tiles.openfreemap.org/planet"
+    },
+    "x3vz12r": {
+      "type": "raster-dem",
+      "url": "pmtiles://https://vectortiles.nyc3.cdn.digitaloceanspaces.com/hillshade.pmtiles"
     }
   },
   "sprite": [
@@ -35,6 +39,22 @@
       "paint": {"background-color": "rgba(199, 200, 199, 1)"}
     },
     {
+      "id": "Terrain",
+      "type": "hillshade",
+      "source": "x3vz12r",
+      "layout": {"visibility": "visible"},
+      "paint": {
+        "hillshade-illumination-direction": [315],
+        "hillshade-shadow-color": ["rgba(0, 0, 0, 0.25)"],
+        "hillshade-highlight-color": ["rgba(185, 218, 185, 0.68)"],
+        "hillshade-exaggeration": 0.2,
+        "hillshade-method": "standard",
+        "hillshade-illumination-altitude": [60],
+        "hillshade-illumination-anchor": "map",
+        "hillshade-accent-color": "rgba(16, 17, 16, 0.45)"
+      }
+    },
+    {
       "id": "park",
       "type": "fill",
       "source": "openmaptiles",
@@ -47,7 +67,7 @@
         false
       ],
       "layout": {"visibility": "visible"},
-      "paint": {"fill-color": "rgba(127, 156, 121, 0.77)"}
+      "paint": {"fill-color": "rgba(127, 156, 121, 0.7)"}
     },
     {
       "id": "water",
@@ -126,7 +146,7 @@
         ["match", ["geometry-type"], ["MultiPolygon", "Polygon"], true, false],
         ["==", ["get", "class"], "wood"]
       ],
-      "layout": {"visibility": "visible"},
+      "layout": {"visibility": "none"},
       "paint": {
         "fill-color": "rgba(155, 199, 155, 0.71)",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0, 12, 1]
@@ -1376,7 +1396,8 @@
         "text-letter-spacing": 0.1,
         "text-max-width": 9,
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 10],
-        "text-transform": "uppercase"
+        "text-transform": "uppercase",
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "#333",
@@ -1422,6 +1443,53 @@
         "text-halo-blur": 1,
         "text-halo-color": "#fff",
         "text-halo-width": 1
+      }
+    },
+    {
+      "id": "label_park",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "park",
+      "minzoom": 7,
+      "filter": [
+        "all",
+        ["match", ["geometry-type"], ["Point"], true, false],
+        [
+          "match",
+          ["get", "class"],
+          [
+            "national_forest",
+            "protected_area",
+            "nature_reserve",
+            "wilderness_area"
+          ],
+          true,
+          false
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "case",
+          ["has", "nonlatin"],
+          ["concat", ["get", "name:latin"], "\n", ["get", "name:nonlatin"]],
+          ["coalesce", ["get", "name_en"], ["get", "name"]]
+        ],
+        "text-font": ["Noto Sans Italic"],
+        "text-letter-spacing": 0.2,
+        "text-max-width": 12,
+        "text-size": ["interpolate", ["linear"], ["zoom"], 7, 6, 10, 12],
+        "visibility": "visible",
+        "text-transform": "uppercase",
+        "text-pitch-alignment": "auto",
+        "text-justify": "auto",
+        "text-ignore-placement": false,
+        "text-line-height": 1.4
+      },
+      "paint": {
+        "text-color": "rgba(70, 100, 63, 1)",
+        "text-halo-color": "rgba(243, 243, 243, 0.65)",
+        "text-halo-width": 0.5,
+        "text-halo-blur": 2
       }
     },
     {

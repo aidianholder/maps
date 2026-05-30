@@ -1359,7 +1359,7 @@ ${iconLayersJs}
     <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"><\/script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        #map { width: 100%; max-width: ${maxW}px; height: ${mapH}px; }
+        #map { width: 100%; height: ${mapH}px; }
         .maplibregl-popup-content { padding: 5px 10px; }
         .maplibregl-popup-tip { border-left-width: 5px; border-right-width: 5px; }
         .lm-popup-dark .maplibregl-popup-content { background: #000; color: #fff; }
