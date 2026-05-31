@@ -215,6 +215,7 @@ const POSITRON_GROUPS = [
 ];
 
 const NEWSPRINT_GROUPS = [
+  { displayName: 'terrain',             layers: ['Terrain'], defaultOff: true },
   { displayName: 'parks',               layers: ['park'] },
   { displayName: 'woodland',            layers: ['landcover_wood'] },
   { displayName: 'ice/glaciers',        layers: ['landcover_ice_shelf', 'landcover_glacier'] },
@@ -257,6 +258,7 @@ const NEWSPRINT_GROUPS = [
     layers: ['railway', 'railway_dashline', 'railway_service', 'railway_service_dashline'] },
   { displayName: 'transit rail',
     layers: ['railway_transit', 'railway_transit_dashline'] },
+  { displayName: 'park labels',         layers: ['label_park'] },
 ];
 
 // ─── AWS ─────────────────────────────────────────────────────────────────────
@@ -421,7 +423,7 @@ const POSITRON_SECTIONS = [
 
 const NEWSPRINT_SECTIONS = [
   { name: 'Natural & Land', entries: [
-    'parks', 'woodland', 'ice/glaciers', 'water', 'waterways', 'airports', 'building footprints',
+    'terrain', 'parks', 'woodland', 'ice/glaciers', 'water', 'waterways', 'airports', 'building footprints',
   ]},
   { name: 'Roads & Transit', entries: [
     'highways', 'major roads', 'minor roads', 'paths/trails', 'rail', 'transit rail',
@@ -430,7 +432,7 @@ const NEWSPRINT_SECTIONS = [
     'boundaries: country', 'boundaries: state', 'boundaries: disputed',
   ]},
   { name: 'Places & Labels', entries: [
-    'airport labels', 'neighborhoods', 'cities', 'towns', 'villages',
+    'airport labels', 'neighborhoods', 'park labels', 'cities', 'towns', 'villages',
     'labels: states', 'labels: country',
     'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
   ]},

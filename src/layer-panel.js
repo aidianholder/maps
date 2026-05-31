@@ -83,7 +83,7 @@ export class LayerPanel {
 
     // Build ordered display rows, preserving style layer order
     const renderedGroups   = new Set();
-    const rows = []; // { displayName, present:string[], type:'group'|'single' }
+    const rows = []; // { displayName, present:string[], type:'group'|'single', defaultOff:boolean }
 
     for (const layer of styleLayers) {
       if (hiddenSet.has(layer.id)) continue;
@@ -94,9 +94,9 @@ export class LayerPanel {
         if (renderedGroups.has(group.displayName)) continue;
         renderedGroups.add(group.displayName);
         const present = group.layers.filter(id => styleLayerIds.has(id));
-        rows.push({ displayName: group.displayName, present, type: 'group' });
+        rows.push({ displayName: group.displayName, present, type: 'group', defaultOff: group.defaultOff ?? false });
       } else {
-        rows.push({ displayName: layer.id, present: [layer.id], type: 'single' });
+        rows.push({ displayName: layer.id, present: [layer.id], type: 'single', defaultOff: false });
       }
     }
 
@@ -104,7 +104,7 @@ export class LayerPanel {
       this._renderSections(rows, sections, nameToSection);
     } else {
       for (const row of rows) {
-        this._list.appendChild(this._makeRowEl(row.displayName, row.present));
+        this._list.appendChild(this._makeRowEl(row.displayName, row.present, row.defaultOff));
       }
     }
   }
@@ -150,7 +150,7 @@ export class LayerPanel {
     const ul = document.createElement('ul');
     ul.className = 'section-items';
     for (const row of rows) {
-      ul.appendChild(this._makeRowEl(row.displayName, row.present));
+      ul.appendChild(this._makeRowEl(row.displayName, row.present, row.defaultOff));
     }
 
     details.appendChild(summary);
@@ -159,13 +159,19 @@ export class LayerPanel {
     return li;
   }
 
-  _makeRowEl(displayName, presentLayers) {
+  _makeRowEl(displayName, presentLayers, defaultOff = false) {
     const li = document.createElement('li');
 
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.id = `layer-cb-${CSS.escape(displayName)}`;
-    cb.checked = true;
+    cb.checked = !defaultOff;
+
+    if (defaultOff) {
+      for (const lid of presentLayers) {
+        if (!this._removed.has(lid)) this._hideLayer(lid);
+      }
+    }
 
     cb.addEventListener('change', () => {
       if (cb.checked) {

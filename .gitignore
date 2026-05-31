@@ -5,3 +5,4 @@ dist/
 .claude/
 *.pmtiles
 map-export.html
+city_markers/
