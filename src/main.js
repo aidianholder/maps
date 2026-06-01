@@ -30,9 +30,9 @@ const STYLES = [
 
 const DEFAULT_STYLE = 'Newsprint';
 
-// Little Rock, Arkansas
-const CENTER = [-92.2896, 34.7465];
-const ZOOM = 10;
+// Fall back to Little Rock, Arkansas if no site config is injected
+const CENTER = window.MAPAPP_CONFIG?.center ?? [-92.2896, 34.7465];
+const ZOOM   = window.MAPAPP_CONFIG?.zoom   ?? 10;
 
 const map = new maplibregl.Map({
   container: 'map',
