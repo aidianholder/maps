@@ -31,6 +31,7 @@ An interactive map editing and export tool built on MapLibre GL JS. Users can to
 - Collapsible panel listing every layer in the current style, organised into named folder sections
 - Per-layer visibility toggle with styled checkboxes
 - Layer groups and hidden-layer lists are configured per style in `src/style-groups.js`
+- Groups can be marked `defaultOff: true` to start unchecked on load (e.g. the Newsprint *Terrain* hillshade layer, which is off by default)
 
 ### Locator Labels
 - Fifteen label styles: boxed dark/white/plain with optional up/down tails, positioned left/centre/right
@@ -44,6 +45,7 @@ An interactive map editing and export tool built on MapLibre GL JS. Users can to
 - Per-icon size control via a slider; individual icons can be resized after placement
 - Click to select; selection indicated by a blue outline box
 - Icons composite on top of PDF/PNG/JPEG/SVG exports
+- **Infowindow editor** — selecting a placed icon opens a slide-up editor with **Title**, **Subhead**, and **Text** fields plus font family, size, and L/C/R alignment controls; content is saved per-icon with the *enter* button and appears as a click-activated slide-up panel at the bottom of HTML exports
 
 ### Draw Panel
 - Five modes via terra-draw: **Point**, **Line**, **Circle**, **Polygon**, **Select**
@@ -65,12 +67,15 @@ An interactive map editing and export tool built on MapLibre GL JS. Users can to
 - Drag the overlay corners to set a custom export size
 - Output formats: PDF, PNG, JPEG, SVG
 - DPI options: 72, 96, 150, 300
+- **Export fence** — a transparent collision-marker symbol layer added during print/PDF/SVG export that prevents map labels from being placed near the frame boundary where they would be clipped; stripped automatically from HTML exports
 - **HTML export** — generates a self-contained MapLibre embed with:
-  - Correct CDN base-style URL mapped from the local dev style path
+  - Full current style inlined from `map.getStyle()` — faithfully reflects the user's layer visibility choices, including any layers toggled off in the Layers panel and dynamically added sources (e.g. hillshade)
+  - PMTiles protocol (`pmtiles@3`) included and registered, so hillshade and other PMTiles tile sources resolve correctly
   - Locator labels rendered as MapLibre popups
-  - Icons as symbol layers (PNG sprites from the CDN)
+  - Icons as symbol layers (PNG sprites from the CDN); icons with infowindow data show a slide-up panel on click
   - Drawn features as GeoJSON sources and appropriate line/fill/circle layers
-  - Map dimensions and centre/zoom matched to the export overlay
+  - Map centred and zoomed to match the export overlay
+  - Map is `width: 100%` to fill whatever container the embed is placed in; height is fixed in pixels to match the export overlay's proportions
 
 ---
 
@@ -133,19 +138,7 @@ PDF/PNG/JPEG/SVG exports are produced by `MapGenerator` (a subclass of `MapGener
 2. **`_compositeIcons`** — same for map icons
 3. **`_compositeDrawFeatures`** — draws terra-draw vector features (points, lines, polygons) using the GeoJSON snapshot from `DrawPanel.getSnapshot()`
 
-The HTML export does not use the hidden-map rendering path; instead it generates a standalone MapLibre script using CDN tile URLs, with locators as popups and all other features as GeoJSON sources and symbol/line/fill layers.
-
-### Style URL Mapping (HTML Export)
-
-Local dev style paths are mapped to public CDN URLs in `main.js`:
-
-| Local path | CDN URL |
-|---|---|
-| `/styles/aws.json` | `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/aws.json` |
-| `/styles/newsprint.json` | `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/newsprint.json` |
-| `/styles/osmbright.json` | `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/osmbright.json` |
-| `/styles/protostyle2.json` | `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/protostyle2.json` |
-| `/styles/positron.json` | `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/positron.json` |
+The HTML export does not use the hidden-map rendering path. Instead, `_generateHtml()` calls `map.getStyle()` to snapshot the live style — with any layers the user has toggled off already absent, and any dynamically added sources (hillshade, draw features, etc.) already present. The fence source and layer are stripped from the snapshot before inlining. The result is a standalone HTML file that initialises MapLibre with the inlined style object; locators become popups, icons and drawn features become GeoJSON symbol/line/fill layers, and the `pmtiles@3` protocol is registered so PMTiles sources resolve correctly.
 
 Icon PNGs in the HTML embed are loaded from `https://mapicons.nyc3.cdn.digitaloceanspaces.com/png/maki/<name>.png`.
 

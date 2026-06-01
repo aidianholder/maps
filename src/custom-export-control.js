@@ -1062,10 +1062,12 @@ export class CustomExportControl {
   // ── HTML embed export ──────────────────────────────────────────────────────
 
   _generateHtml() {
-    const center = this._map.getCenter();
-    const zoom   = this._map.getZoom();
-    const styleUrl = this._options.StyleURLMap?.[this._styleUrl]
-      ?? new URL(this._styleUrl || '', window.location.href).href;
+    const center    = this._map.getCenter();
+    const zoom      = this._map.getZoom();
+    const styleObj  = this._map.getStyle();
+    // Strip fence source/layer — they're invisible collision markers, not map content
+    if (styleObj.sources) delete styleObj.sources[FENCE_SOURCE];
+    if (styleObj.layers)  styleObj.layers = styleObj.layers.filter(l => l.id !== FENCE_LAYER);
 
     // Map dimensions from the current export overlay
     const [mmW, mmH] = this._getCurrentExportSize();
@@ -1079,7 +1081,7 @@ export class CustomExportControl {
     const drawFeatures = getDrawPanel(this._map)?.getSnapshot() ?? [];
 
     const html = this._buildHtml({
-      center, zoom, styleUrl, maxW, mapH,
+      center, zoom, styleObj, maxW, mapH,
       locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures,
     });
 
@@ -1186,7 +1188,7 @@ export class CustomExportControl {
     return { iconFeatures, iconDataMap };
   }
 
-  _buildHtml({ center, zoom, styleUrl, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures = [] }) {
+  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures = [] }) {
     const hasLocators = locatorFeatures.length > 0;
     const hasIcons    = iconFeatures.length > 0;
 
@@ -1357,6 +1359,7 @@ ${iconLayersJs}
     ${fontLinks}
     <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
     <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"><\/script>
+    <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"><\/script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         #map { width: 100%; height: ${mapH}px; }
@@ -1376,9 +1379,12 @@ ${iconLayersJs}
 <body>
 <div id="map"></div>
 <script>
+    const _pmtilesProtocol = new pmtiles.Protocol();
+    maplibregl.addProtocol('pmtiles', _pmtilesProtocol.tile.bind(_pmtilesProtocol));
+
     const map = new maplibregl.Map({
         container: 'map',
-        style: '${styleUrl}',
+        style: ${JSON.stringify(styleObj)},
         center: [${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}],
         zoom: ${zoom.toFixed(3)},
     });

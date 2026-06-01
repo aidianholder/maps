@@ -82,6 +82,10 @@ Uncheck any layer to remove it from the map. The change is instant and reversibl
 - **Points of interest** — the default POI layer adds hundreds of small symbols that compete with your own markers
 - **Labels: minor roads** — at city or county scale these add noise without helping orientation
 
+**Things to turn on:**
+
+- **Terrain** *(Newsprint style only, off by default)* — adds hillshading that shows ridgelines, valleys, and elevation changes. Useful for flood, fire, landslide, or any story where physical geography matters. Find it at the top of the *Natural & Land* section.
+
 > **Example — Tight neighbourhood map:** At a scale where you can see individual blocks, uncheck *Labels: minor roads*, *Highway shields*, and *Airport labels*. Leave *Labels: major roads* and *Neighborhoods* checked so readers can orient themselves.
 
 > **Example — County-level overview:** At this scale, uncheck everything under *Roads & Transit* except *Highways*. Uncheck *Points of interest* and *Building footprints*. The result is a clean outline map that lets your drawn features speak.
@@ -155,6 +159,22 @@ Click the **icons button** (second from right in the toolbar) to open the Icons 
 ### Resizing icons
 
 The **Size slider** at the top of the panel sets the size for any icon you place next. You can also resize an already-placed icon: click it to select it (a blue outline box appears), then drag the slider. Click anywhere on the map to deselect.
+
+### Adding an infowindow
+
+Every icon can carry a pop-up information panel that readers see when they click the icon in the **HTML export**. (Infowindows do not appear in PDF or image exports — they can't be clicked.)
+
+Click an icon to select it (a blue outline appears). The **Infowindow** editor slides up at the bottom of the screen with three fields:
+
+- **Title** — the headline, displayed in a larger bold font
+- **Subhead** — a secondary line in a slightly smaller, muted style; good for a date, address, or one-line description
+- **Text** — a longer body paragraph; can be several sentences
+
+Below the fields, set the **font**, **size**, and **alignment** (L/C/R) for the infowindow text. When you're happy, click **enter** to save the content to that icon. Click **clear** to remove it.
+
+An icon with no infowindow is still clickable in the HTML export — it just won't open a panel.
+
+> **Example — Hospital closure:** Place the hospital icon, click it to select it, and fill in *Title:* "St. Vincent's Medical Center", *Subhead:* "Closing March 31", *Text:* "The only Level II trauma centre within 40 miles. Staff have been offered transfers to Baptist Health." Click **enter**. In the published HTML map, readers who tap the icon will see this context without it cluttering the printed version.
 
 ### Choosing the right icon
 
@@ -263,11 +283,13 @@ The HTML export generates a fully self-contained interactive map that you can pa
 
 In the export panel, choose **HTML** from the Format dropdown and click **Generate**. The downloaded `.html` file is a complete interactive MapLibre map. It:
 
-- Loads tiles from the same CDN as the app
+- **Reflects your layer choices exactly** — any layers you've turned off in the Layers panel are absent from the exported map; layers you've turned on (including Terrain hillshade) are included
 - Reproduces your labels as interactive popups
-- Displays your icons and drawn features as map layers
+- Displays your icons and drawn features as map layers; icons with infowindow content open a slide-up panel when clicked
 - Is centred and zoomed to match the export frame
-- Has `width: 100%` so it scales to any column width
+- Has `width: 100%` so it fills whatever column or container it's placed in; the **height is fixed** to match the proportions of your export frame, so place it inside a container that controls the width
+
+> **Tip — CMS embeds:** Most CMSes let you paste raw HTML into an article. Drop the file contents (or a hosted URL) into an HTML embed block. The map will size itself to the column width automatically. If it looks too tall or too short, adjust the export frame proportions before regenerating.
 
 Drop the file into your CMS's HTML embed block, or send it to your web team to host at a URL.
 
