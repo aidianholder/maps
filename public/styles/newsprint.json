@@ -435,7 +435,11 @@
         ],
         ["match", ["get", "class"], ["minor", "service", "track"], true, false]
       ],
-      "layout": {"line-cap": "round", "line-join": "round"},
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
       "paint": {
         "line-color": "hsl(0,0%,88%)",
         "line-opacity": 0.9,
@@ -1192,12 +1196,14 @@
         ],
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "map",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 13, 12, 14, 13]
+        "text-size": ["interpolate", ["linear"], ["zoom"], 13, 12, 14, 13],
+        "visibility": "visible"
       },
       "paint": {
         "text-color": "#666",
         "text-halo-blur": 0.5,
-        "text-halo-width": 1
+        "text-halo-width": 0.5,
+        "text-halo-color": "rgba(255, 255, 255, 1)"
       }
     },
     {
@@ -1229,7 +1235,8 @@
       "paint": {
         "text-color": "#666",
         "text-halo-blur": 0.5,
-        "text-halo-width": 1
+        "text-halo-width": 1,
+        "text-halo-color": "rgba(255, 255, 255, 1)"
       }
     },
     {
