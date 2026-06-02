@@ -10,7 +10,8 @@ import { STYLE_CONFIGS } from './style-groups.js';
 import { CustomExportControl } from './custom-export-control.js';
 import { LocatorPanel } from './locator-panel.js';
 import { IconsPanel } from './icons-panel.js';
-import { DrawPanel }  from './draw-panel.js';
+import { DrawPanel }     from './draw-panel.js';
+import { OverlaysPanel } from './overlays-panel.js';
 import MaplibreGeocoder from '@maplibre/maplibre-gl-geocoder';
 import '@maplibre/maplibre-gl-geocoder/dist/maplibre-gl-geocoder.css';
 import '@watergis/maplibre-gl-export/dist/maplibre-gl-export.css';
@@ -114,6 +115,10 @@ iconsPanel.mount(document.getElementById('panel-icons'));
 const drawPanel = new DrawPanel(map);
 drawPanel.mount(document.getElementById('panel-draw'));
 
+const overlaysPanel = new OverlaysPanel(map);
+overlaysPanel.mount(document.getElementById('panel-overlays'));
+
+
 // ── Toolbar dropdown logic ─────────────────────────────────────────────────
 
 function closeAllDropdowns() {
@@ -126,6 +131,7 @@ function closeAllDropdowns() {
   ['btn-locators', 'panel-locators'],
   ['btn-icons',    'panel-icons'],
   ['btn-draw',     'panel-draw'],
+  ['btn-overlays', 'panel-overlays'],
 ].forEach(([btnId, panelId]) => {
   const btn   = document.getElementById(btnId);
   const panel = document.getElementById(panelId);

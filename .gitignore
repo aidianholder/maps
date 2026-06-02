@@ -6,3 +6,4 @@ dist/
 *.pmtiles
 map-export.html
 city_markers/
+sprite*

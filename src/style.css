@@ -39,6 +39,141 @@ html, body {
   max-height: calc(100vh - 130px);
 }
 
+/* ── Overlays button (left side, below draw button) ──────────────────────── */
+
+#overlays-btn-wrapper {
+  position: absolute;
+  top: 148px;
+  left: 10px;
+  z-index: 20;
+}
+
+/* Panel opens to the right of the button */
+#overlays-btn-wrapper .panel-dropdown {
+  top: 0;
+  left: calc(100% + 4px);
+  max-height: calc(100vh - 168px);
+  width: 220px;
+}
+
+/* ── Overlays panel ───────────────────────────────────────────────────────── */
+
+#overlays-panel {
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.ovr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.ovr-header h2 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ovr-close-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.ovr-close-btn:hover { color: #374151; background: rgba(0,0,0,0.06); }
+
+.ovr-menu-list {
+  list-style: none;
+  padding: 4px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ovr-menu-item {
+  /* wrapper for each top-level submenu */
+}
+
+.ovr-submenu-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.ovr-submenu-header::-webkit-details-marker { display: none; }
+.ovr-submenu-header::marker { display: none; }
+
+.ovr-submenu-header::before {
+  content: '▸';
+  font-size: 9px;
+  color: #9ca3af;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+details[open] > .ovr-submenu-header::before {
+  transform: rotate(90deg);
+}
+
+.ovr-submenu-header:hover {
+  background: rgba(0,0,0,0.04);
+  color: #111827;
+}
+
+.ovr-group-list {
+  list-style: none;
+  padding: 2px 0 4px;
+  border-left: 1px solid #e5e7eb;
+  margin-left: 22px;
+}
+
+.ovr-group-item {
+  /* wrapper */
+}
+
+.ovr-group-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #4b5563;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ovr-group-btn:hover {
+  background: rgba(59,130,246,0.07);
+  color: #1d4ed8;
+}
+
+.ovr-group-btn.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 /* ── Draw panel ───────────────────────────────────────────────────────────── */
 
 #draw-panel {
