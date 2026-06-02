@@ -169,11 +169,13 @@ document.addEventListener('click', (e) => {
   closeAllDropdowns();
 });
 
-// Global sync for markers on map move/zoom to prevent drift
-const syncAllMarkers = () => {
-  locatorPanel.syncPositions();
-  iconsPanel.syncPositions();
-};
+// Sync locator label positions on every map move/zoom.
+// (Icon markers use MapLibre's native Marker positioning and need no manual sync.)
+map.on('move', () => locatorPanel.syncPositions());
+map.on('zoom', () => locatorPanel.syncPositions());
 
-map.on('move', syncAllMarkers);
-map.on('zoom', syncAllMarkers);
+// Snap icon markers to their exact position once a zoom animation finishes.
+// During smooth zoom the WebGL canvas and DOM markers are on separate rendering
+// pipelines and can drift by a frame or two; zoomend fires when the map is fully
+// at rest so the correction is applied once and is imperceptible to the user.
+map.on('zoomend', () => iconsPanel.snapPositions());

@@ -287,55 +287,29 @@ export class IconsPanel {
     el.setAttribute('data-lng', center.lng.toString());
     el.setAttribute('data-lat', center.lat.toString());
 
-    // addTo() does: map.on('move', this._update) — storing the exact function
-    // object as the listener.  We must remove those listeners so map zoom/pan
-    // can't trigger the percentage-based transform and fight syncPositions.
-    // We keep marker._update intact so MapLibre's own drag system (setLngLat →
-    // _update) still works while the user is dragging the icon.
-    const origUpdate = marker._update;   // exact reference — NOT .bind()
-    this._map.off('move',                  origUpdate);
-    this._map.off('moveend',               origUpdate);
-    this._map.off('terrain',               origUpdate);
-    this._map.off('projectiontransition',  origUpdate);
-
-    // Set initial transform via direct projection
-    this._applyTransform(el, center.lng, center.lat);
-
+    // Let MapLibre's native Marker positioning handle all move/zoom updates.
+    // dragend only needs to update the stored data attributes for export.
     marker.on('dragend', () => {
       const lngLat = marker.getLngLat();
       el.setAttribute('data-lng', lngLat.lng.toString());
       el.setAttribute('data-lat', lngLat.lat.toString());
-      this._applyTransform(el, lngLat.lng, lngLat.lat);
     });
 
     this._icons.push({ marker, el, iconName });
   }
 
   /**
-   * Re-project every icon from its stored lng/lat and set the CSS transform
-   * directly — no async _update chain, no race condition.
+   * Snap every icon to its exact projected position after a zoom animation
+   * settles. Calling setLngLat with the existing value triggers MapLibre's
+   * _update() synchronously, correcting any drift that accumulated during the
+   * animation frames.
    */
-  syncPositions() {
-    this._icons.forEach(({ el }) => {
-      const lng = parseFloat(el.getAttribute('data-lng'));
-      const lat = parseFloat(el.getAttribute('data-lat'));
-      if (!isNaN(lng) && !isNaN(lat)) {
-        this._applyTransform(el, lng, lat);
-      }
+  snapPositions() {
+    this._icons.forEach(({ marker }) => {
+      marker.setLngLat(marker.getLngLat());
     });
   }
 
-  /**
-   * Set the icon element's CSS transform so it is centred on the projected
-   * geographic coordinate — matches MapLibre's anchor:'center' formula but
-   * computed synchronously from the current map projection.
-   */
-  _applyTransform(el, lng, lat) {
-    const pt = this._map.project([lng, lat]);
-    const w  = el.offsetWidth  || 0;
-    const h  = el.offsetHeight || 0;
-    el.style.transform = `translate(${pt.x - w / 2}px, ${pt.y - h / 2}px)`;
-  }
 
   _selectIcon(el) {
     if (this._activeEl === el) return;
@@ -378,9 +352,10 @@ export class IconsPanel {
     el.dataset.size = size;
     const img = el.querySelector('img');
     if (img) { img.style.width = `${size}px`; img.style.height = `${size}px`; }
-    const lng = parseFloat(el.getAttribute('data-lng'));
-    const lat = parseFloat(el.getAttribute('data-lat'));
-    if (!isNaN(lng) && !isNaN(lat)) this._applyTransform(el, lng, lat);
+    // Re-set the marker's lngLat so MapLibre recalculates the anchor offset
+    // immediately to account for the new element dimensions.
+    const entry = this._icons.find(i => i.el === el);
+    if (entry) entry.marker.setLngLat(entry.marker.getLngLat());
   }
 
 }
