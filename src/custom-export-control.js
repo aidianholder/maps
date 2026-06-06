@@ -192,7 +192,15 @@ class MapGenerator extends MapGeneratorBase {
 
       // Convert from original-map screen coords → lng/lat → hidden-map screen coords
       const hiddenPt  = hiddenMap.project(lngLat);
-      const cx = hiddenPt.x * scale;
+
+      // The locator-panel applies a horizontal CSS offset for left/right tail positions
+      // (offset: [+18.5, 0] for posLeft, [-18.5, 0] for posRight) so the tail tip lands
+      // visually 18.5 CSS px away from the stored geographic pin.  We must shift cx by the
+      // same amount so _drawLocatorLabel receives the true visual tail-tip position.
+      const posLeft  = el.classList.contains('lm-pos-left');
+      const posRight = el.classList.contains('lm-pos-right');
+      const tailPxOff = posLeft ? 18.5 : posRight ? -18.5 : 0;
+      const cx = (hiddenPt.x + tailPxOff) * scale;
       const cy = hiddenPt.y * scale;
 
       // Read style info from the live element
@@ -217,8 +225,8 @@ class MapGenerator extends MapGeneratorBase {
         isLine:    el.classList.contains('lm-line'),
         tailDown:  el.classList.contains('lm-tail-down'),
         tailUp:    el.classList.contains('lm-tail-up'),
-        posLeft:   el.classList.contains('lm-pos-left'),
-        posRight:  el.classList.contains('lm-pos-right'),
+        posLeft,
+        posRight,
       });
     }
 
@@ -376,18 +384,22 @@ class MapGenerator extends MapGeneratorBase {
     const boxW = maxLineW + padX * 2;
     const boxH = lines.length * lineH + padY * 2;
 
-    // Box top-left based on anchor type
+    // Box top-left based on anchor type.
+    // anchorX is the visual tail-tip position (already offset-corrected by the caller):
+    //   center  → tail tip at box horizontal centre  → boxX = anchorX - boxW/2
+    //   posLeft → tail tip at box LEFT  edge         → boxX = anchorX
+    //   posRight→ tail tip at box RIGHT edge         → boxX = anchorX - boxW
     let boxX, boxY;
     if (tailDown) {
-      boxX = anchorX - boxW / 2;
       boxY = anchorY - tailH - boxH;
-      if (posLeft)  boxX = anchorX - 18.5 * scale;
-      if (posRight) boxX = anchorX - boxW + 18.5 * scale;
+      if      (posLeft)  boxX = anchorX;
+      else if (posRight) boxX = anchorX - boxW;
+      else               boxX = anchorX - boxW / 2;
     } else if (tailUp) {
-      boxX = anchorX - boxW / 2;
       boxY = anchorY + tailH;
-      if (posLeft)  boxX = anchorX - 18.5 * scale;
-      if (posRight) boxX = anchorX - boxW + 18.5 * scale;
+      if      (posLeft)  boxX = anchorX;
+      else if (posRight) boxX = anchorX - boxW;
+      else               boxX = anchorX - boxW / 2;
     } else {
       boxX = anchorX - boxW / 2;
       boxY = anchorY - boxH / 2;
@@ -429,9 +441,8 @@ class MapGenerator extends MapGeneratorBase {
     if (isLine) {
       const shaftH    = 22 * scale;
       const shaftW    = 1.5 * scale;
-      const shaftX    = posLeft  ? boxX + 18.5 * scale - shaftW / 2
-                      : posRight ? boxX + boxW - 18.5 * scale - shaftW / 2
-                      :            anchorX - shaftW / 2;
+      // anchorX is already the visual tail-tip x — shaft is always centred on it.
+      const shaftX    = anchorX - shaftW / 2;
       ctx.fillStyle = '#333333';
       if (tailDown) ctx.fillRect(shaftX, boxY + boxH, shaftW, shaftH);
       else if (tailUp) ctx.fillRect(shaftX, boxY - shaftH, shaftW, shaftH);
@@ -455,9 +466,9 @@ class MapGenerator extends MapGeneratorBase {
 
     // ── Tail ───────────────────────────────────────────────────────────────
     if (tailDown || tailUp) {
-      const tailBaseX = posLeft  ? boxX + 18.5 * scale
-                      : posRight ? boxX + boxW - 18.5 * scale
-                      :            anchorX;
+      // anchorX is the corrected visual tail-tip x; the CSS triangle centre always
+      // lands at anchorX regardless of posLeft/posRight, so tailBaseX = anchorX.
+      const tailBaseX = anchorX;
       ctx.fillStyle = bgColor;
       ctx.beginPath();
       if (tailDown) {
@@ -1139,6 +1150,11 @@ export class CustomExportControl {
         const haloColor  = isDark ? '#1a1a1a' : '#ffffff';
         const haloWidth  = (isDark || el.classList.contains('lm-white')) ? 4 : 2;
 
+        // The locator-panel shifts the element ±18.5 CSS px from the stored pin so the
+        // CSS tail tip aligns with that pin visually.  The HTML popup needs the same
+        // pixel offset so it lands in the same position as the live locator.
+        const offsetX = posLeft ? 18.5 : posRight ? -18.5 : 0;
+
         return [{
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [
@@ -1149,6 +1165,7 @@ export class CustomExportControl {
             text,
             fontSize:   parseFloat(bodyEl?.style.fontSize) || 14,
             anchor,
+            offsetX,
             textColor,
             haloColor,
             haloWidth,
@@ -1354,7 +1371,10 @@ ${iconLayersJs}
       const [lng, lat] = f.geometry.coordinates;
       const html = f.properties.text.replace(/\n/g, '<br>');
       const darkClass = f.properties.isDark ? ' lm-popup-dark' : '';
-      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}', className: '${darkClass.trim()}' })
+      // offsetX mirrors the CSS horizontal shift the locator-panel applies so the
+      // popup tip lands at the same screen position as the live locator's tail tip.
+      const offsetX = f.properties.offsetX || 0;
+      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}', offset: [${offsetX}, 0], className: '${darkClass.trim()}' })
             .setLngLat([${lng}, ${lat}])
             .setHTML(${JSON.stringify(html)})
             .addTo(map);`;
