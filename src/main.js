@@ -185,8 +185,8 @@ map.on('zoom', () => locatorPanel.syncPositions());
 // moveend → _update() fires synchronously before the rAF and has already
 // projected every marker to the correct pixel position.
 let _mapZooming = false;
-map.on('zoomstart', () => { _mapZooming = true;  iconsPanel.hideAll(); });
-map.on('zoomend',   () => { _mapZooming = false; requestAnimationFrame(() => { if (!_mapZooming) iconsPanel.showAll(); }); });
+map.on('zoomstart', () => { _mapZooming = true;  iconsPanel.hideAll();  locatorPanel.hideAll(); });
+map.on('zoomend',   () => { _mapZooming = false; requestAnimationFrame(() => { if (!_mapZooming) { iconsPanel.showAll(); locatorPanel.showAll(); } }); });
 
 // ── Map HUD (coordinates + zoom) ──────────────────────────────────────────
 const hudCoords = document.getElementById('hud-coords');

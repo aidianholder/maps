@@ -1069,6 +1069,15 @@ export class CustomExportControl {
     if (styleObj.sources) delete styleObj.sources[FENCE_SOURCE];
     if (styleObj.layers)  styleObj.layers = styleObj.layers.filter(l => l.id !== FENCE_LAYER);
 
+    // Strip terra-draw sources/layers — they are re-added dynamically in the map.on('load')
+    // block with the actual feature data.  Leaving them in the style causes MapLibre to throw
+    // "Source with ID 'td-*' already exists" when the load handler runs, which aborts the
+    // async callback before the locator popup code executes.
+    const TD_SOURCE_IDS = ['td-polygon', 'td-linestring', 'td-point'];
+    const TD_LAYER_IDS  = new Set(['td-polygon', 'td-polygon-outline', 'td-linestring', 'td-point', 'td-point-marker']);
+    TD_SOURCE_IDS.forEach(id => { if (styleObj.sources) delete styleObj.sources[id]; });
+    if (styleObj.layers) styleObj.layers = styleObj.layers.filter(l => !TD_LAYER_IDS.has(l.id));
+
     // Map dimensions from the current export overlay
     const [mmW, mmH] = this._getCurrentExportSize();
     const pxPerMm = SCREEN_DPI / MM_PER_INCH;
