@@ -298,16 +298,18 @@ export class IconsPanel {
     this._icons.push({ marker, el, iconName });
   }
 
+  /** Hide all icon markers during zoom to prevent pipeline-mismatch drift. */
+  hideAll() {
+    this._icons.forEach(({ el }) => { el.style.visibility = 'hidden'; });
+  }
+
   /**
-   * Snap every icon to its exact projected position after a zoom animation
-   * settles. Calling setLngLat with the existing value triggers MapLibre's
-   * _update() synchronously, correcting any drift that accumulated during the
-   * animation frames.
+   * Reveal all icon markers after a zoom animation fully settles.
+   * By the time this is called, MapLibre's own moveend → _update() has already
+   * projected every marker to the correct pixel position — we just unhide.
    */
-  snapPositions() {
-    this._icons.forEach(({ marker }) => {
-      marker.setLngLat(marker.getLngLat());
-    });
+  showAll() {
+    this._icons.forEach(({ el }) => { el.style.visibility = ''; });
   }
 
 

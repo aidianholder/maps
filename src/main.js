@@ -174,8 +174,35 @@ document.addEventListener('click', (e) => {
 map.on('move', () => locatorPanel.syncPositions());
 map.on('zoom', () => locatorPanel.syncPositions());
 
-// Snap icon markers to their exact position once a zoom animation finishes.
-// During smooth zoom the WebGL canvas and DOM markers are on separate rendering
-// pipelines and can drift by a frame or two; zoomend fires when the map is fully
-// at rest so the correction is applied once and is imperceptible to the user.
-map.on('zoomend', () => iconsPanel.snapPositions());
+// Hide icon markers during zoom so pipeline-mismatch drift is never visible,
+// then reveal them once the animation is fully at rest.
+//
+// The _mapZooming guard prevents a stale rAF (queued by a previous zoomend)
+// from unhiding markers while a new zoom has already started — which would
+// make the drift visible mid-animation.
+//
+// setLngLat is intentionally NOT called in showAll(): MapLibre's own
+// moveend → _update() fires synchronously before the rAF and has already
+// projected every marker to the correct pixel position.
+let _mapZooming = false;
+map.on('zoomstart', () => { _mapZooming = true;  iconsPanel.hideAll(); });
+map.on('zoomend',   () => { _mapZooming = false; requestAnimationFrame(() => { if (!_mapZooming) iconsPanel.showAll(); }); });
+
+// ── Map HUD (coordinates + zoom) ──────────────────────────────────────────
+const hudCoords = document.getElementById('hud-coords');
+const hudZoom   = document.getElementById('hud-zoom');
+
+function hudFmtCoord(val, pos, neg) {
+  return `${Math.abs(val).toFixed(4)}° ${val >= 0 ? pos : neg}`;
+}
+function hudUpdateZoom() {
+  hudZoom.textContent = map.getZoom().toFixed(2);
+}
+
+map.on('mousemove', (e) => {
+  hudCoords.textContent =
+    `${hudFmtCoord(e.lngLat.lat, 'N', 'S')},  ${hudFmtCoord(e.lngLat.lng, 'E', 'W')}`;
+});
+map.on('zoom',    hudUpdateZoom);
+map.on('zoomend', hudUpdateZoom);
+hudUpdateZoom();
