@@ -116,7 +116,8 @@ class MapGenerator extends MapGeneratorBase {
       const webgl         = origGetCanvas();
       const withLocators  = self._compositeLocators(webgl, map);
       const withIcons     = self._compositeIcons(withLocators, map);
-      return self._compositeDrawFeatures(withIcons, map);
+      const withText      = self._compositeText(withIcons, map);
+      return self._compositeDrawFeatures(withText, map);
     };
 
     return map;
@@ -284,6 +285,134 @@ class MapGenerator extends MapGeneratorBase {
     }
 
     return composite;
+  }
+
+  // ── Text overlay compositing ─────────────────────────────────────────────────
+
+  _compositeText(baseCanvas, hiddenMap) {
+    const els = Array.from(
+      document.querySelectorAll('.map-text')
+    ).filter(el => this.map.getContainer().contains(el));
+
+    if (els.length === 0) return baseCanvas;
+
+    const composite = document.createElement('canvas');
+    composite.width  = baseCanvas.width;
+    composite.height = baseCanvas.height;
+    const ctx = composite.getContext('2d');
+    ctx.drawImage(baseCanvas, 0, 0);
+
+    const cssW  = hiddenMap.getContainer().offsetWidth || this.map.getContainer().offsetWidth || (baseCanvas.width / window.devicePixelRatio);
+    const scale = baseCanvas.width / cssW;
+
+    for (const el of els) {
+      const dataLng = el.getAttribute('data-lng');
+      const dataLat = el.getAttribute('data-lat');
+      if (!dataLng || !dataLat) continue;
+
+      const lngLat   = new maplibregl.LngLat(parseFloat(dataLng), parseFloat(dataLat));
+      const hiddenPt = hiddenMap.project(lngLat);
+      // anchor: 'left' → element's left edge sits on the projected point,
+      // vertically centered (mirrors the live `translate(0,-50%)` CSS transform)
+      const anchorX = hiddenPt.x * scale;
+      const anchorY = hiddenPt.y * scale;
+
+      const textEl = el.querySelector('.mt-text');
+      const text   = (textEl?.innerText ?? '').trim();
+      if (!text) continue;
+
+      const fontFamily  = textEl?.style.fontFamily || '"Inter", sans-serif';
+      const fontSize    = (parseFloat(textEl?.style.fontSize) || 18) * scale;
+      const color       = textEl?.style.color || '#1a1a1a';
+      const borderColor = textEl?.style.borderColor || '#1a1a1a';
+      const bgColor     = textEl?.style.backgroundColor || '#ffffff';
+
+      this._drawTextOverlay(ctx, anchorX, anchorY, text, {
+        fontFamily,
+        fontSize,
+        scale,
+        color,
+        bold:       el.classList.contains('mt-bold'),
+        italic:     el.classList.contains('mt-italic'),
+        underline:  el.classList.contains('mt-underline'),
+        border:     el.classList.contains('mt-border'),
+        borderColor,
+        background: el.classList.contains('mt-bg'),
+        bgColor,
+      });
+    }
+
+    return composite;
+  }
+
+  /**
+   * Draws a left-anchored, vertically-centered text overlay onto the canvas.
+   * `anchorX, anchorY` is the geographic pin's projected screen position —
+   * the text's left edge (or its border/background box's left edge, if present)
+   * sits there.
+   */
+  _drawTextOverlay(ctx, anchorX, anchorY, text, opts) {
+    const {
+      fontFamily, fontSize, scale, color, bold, italic, underline,
+      border, borderColor, background, bgColor,
+    } = opts;
+
+    const weight = bold   ? 'bold '   : '';
+    const style  = italic ? 'italic ' : '';
+    const font   = `${style}${weight}${fontSize}px ${fontFamily}`;
+
+    const lines = text.split('\n');
+    const lineH = fontSize * 1.3;
+    const textH = lines.length * lineH;
+
+    ctx.font = font;
+    const maxLineW = Math.max(...lines.map(l => ctx.measureText(l).width));
+
+    const padX = (border || background) ? 8 * scale : 0;
+    const padY = (border || background) ? 5 * scale : 0;
+
+    const boxX = anchorX;
+    const boxY = anchorY - textH / 2 - padY;
+    const boxW = maxLineW + padX * 2;
+    const boxH = textH + padY * 2;
+
+    if (background) {
+      ctx.save();
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.restore();
+    }
+
+    if (border) {
+      ctx.save();
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth   = 2 * scale;
+      ctx.strokeRect(boxX + ctx.lineWidth / 2, boxY + ctx.lineWidth / 2, boxW - ctx.lineWidth, boxH - ctx.lineWidth);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    const textX = boxX + padX;
+    lines.forEach((line, i) => {
+      const ly = boxY + padY + (i + 0.5) * lineH;
+      ctx.fillText(line, textX, ly);
+      if (underline) {
+        const w = ctx.measureText(line).width;
+        const underlineY = ly + fontSize * 0.32;
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = Math.max(1, fontSize * 0.06);
+        ctx.moveTo(textX, underlineY);
+        ctx.lineTo(textX + w, underlineY);
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
   }
 
   _compositeDrawFeatures(baseCanvas, hiddenMap) {
@@ -1097,12 +1226,13 @@ export class CustomExportControl {
 
     const locatorFeatures = this._collectLocatorFeatures();
     const { iconFeatures, iconDataMap } = this._collectIconData();
+    const textFeatures = this._collectTextFeatures();
     const font = this._detectStyleFont();
     const drawFeatures = getDrawPanel(this._map)?.getSnapshot() ?? [];
 
     const html = this._buildHtml({
       center, zoom, styleObj, maxW, mapH,
-      locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures,
+      locatorFeatures, iconFeatures, iconDataMap, textFeatures, font, drawFeatures,
     });
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -1215,20 +1345,55 @@ export class CustomExportControl {
     return { iconFeatures, iconDataMap };
   }
 
-  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures = [] }) {
+  _collectTextFeatures() {
+    return Array.from(document.querySelectorAll('.map-text'))
+      .filter(el => this._map.getContainer().contains(el))
+      .flatMap(el => {
+        const textEl = el.querySelector('.mt-text');
+        const text   = (textEl?.innerText ?? '').trim();
+        if (!text) return [];
+
+        return [{
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [
+            parseFloat(el.getAttribute('data-lng')),
+            parseFloat(el.getAttribute('data-lat')),
+          ]},
+          properties: {
+            text,
+            font:        el.dataset.font  || 'Inter',
+            size:        parseFloat(el.dataset.size) || 18,
+            color:       el.dataset.color || '#1a1a1a',
+            bold:        el.classList.contains('mt-bold'),
+            italic:      el.classList.contains('mt-italic'),
+            underline:   el.classList.contains('mt-underline'),
+            border:      el.classList.contains('mt-border'),
+            borderColor: el.dataset.borderColor || '#1a1a1a',
+            background:  el.classList.contains('mt-bg'),
+            bgColor:     el.dataset.bgColor || '#ffffff',
+          },
+        }];
+      });
+  }
+
+  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, textFeatures = [], font, drawFeatures = [] }) {
     const hasLocators = locatorFeatures.length > 0;
     const hasIcons    = iconFeatures.length > 0;
+    const hasText     = textFeatures.length > 0;
 
-    // Detect all fonts used across locators and infowindows
+    // Detect all fonts used across locators, infowindows, and text overlays
     const usedFonts = new Set();
     locatorFeatures.forEach(f => {
-      // Locator features don't currently store the font value in properties, 
-      // but they are already loaded in the main app. 
+      // Locator features don't currently store the font value in properties,
+      // but they are already loaded in the main app.
       // However, for HTML export, we should probably ensure they are linked.
       // For now, let's focus on Infowindow fonts which we just added.
     });
     iconFeatures.forEach(f => {
       if (f.properties.iwFont) usedFonts.add(f.properties.iwFont);
+    });
+    textFeatures.forEach(f => {
+      if (f.properties.font) usedFonts.add(f.properties.font);
     });
 
     const fontLinks = Array.from(usedFonts).map(f => {
@@ -1393,6 +1558,32 @@ ${iconLayersJs}
             .addTo(map);`;
     }).join('\n') : '';
 
+    // Text overlays — recreated as left-anchored maplibregl.Markers carrying a
+    // styled HTML <div>, mirroring the geo-anchored positioning used live
+    // (anchor: 'left' pins the element's left edge to the stored coordinate).
+    const textJs = hasText ? textFeatures.map(f => {
+      const [lng, lat] = f.geometry.coordinates;
+      const p = f.properties;
+      const displayFont = (p.font || 'Inter').replace(/\+/g, ' ');
+      const html = p.text.replace(/\n/g, '<br>');
+      const weight      = p.bold      ? 'font-weight:700;'           : '';
+      const styleIt     = p.italic    ? 'font-style:italic;'         : '';
+      const decoration  = p.underline ? 'text-decoration:underline;' : '';
+      const borderStyle = p.border     ? `border:2px solid ${p.borderColor};border-radius:3px;` : '';
+      const bgStyle     = p.background ? `background-color:${p.bgColor};` : '';
+      const padStyle    = (p.border || p.background) ? 'padding:5px 8px;display:inline-block;' : '';
+      const elStyle = `font-family:"${displayFont}", sans-serif;font-size:${p.size}px;color:${p.color};` +
+        `white-space:pre-wrap;line-height:1.3;${weight}${styleIt}${decoration}${borderStyle}${bgStyle}${padStyle}`;
+      return `        (() => {
+            const el = document.createElement('div');
+            el.style.cssText = ${JSON.stringify(elStyle)};
+            el.innerHTML = ${JSON.stringify(html)};
+            new maplibregl.Marker({ element: el, anchor: 'left' })
+                .setLngLat([${lng}, ${lat}])
+                .addTo(map);
+        })();`;
+    }).join('\n') : '';
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1436,7 +1627,7 @@ ${iconLayersJs}
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     map.on('load', async () => {
-${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}
+${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}${textJs}
     });
 <\/script>
 </body>

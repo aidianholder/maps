@@ -171,8 +171,8 @@ document.addEventListener('click', (e) => {
 
 // Sync locator label positions on every map move/zoom.
 // (Icon markers use MapLibre's native Marker positioning and need no manual sync.)
-map.on('move', () => locatorPanel.syncPositions());
-map.on('zoom', () => locatorPanel.syncPositions());
+map.on('move', () => { locatorPanel.syncPositions(); overlaysPanel.syncPositions(); });
+map.on('zoom', () => { locatorPanel.syncPositions(); overlaysPanel.syncPositions(); });
 
 // Hide icon markers during zoom so pipeline-mismatch drift is never visible,
 // then reveal them once the animation is fully at rest.
@@ -185,8 +185,8 @@ map.on('zoom', () => locatorPanel.syncPositions());
 // moveend → _update() fires synchronously before the rAF and has already
 // projected every marker to the correct pixel position.
 let _mapZooming = false;
-map.on('zoomstart', () => { _mapZooming = true;  iconsPanel.hideAll();  locatorPanel.hideAll(); });
-map.on('zoomend',   () => { _mapZooming = false; requestAnimationFrame(() => { if (!_mapZooming) { iconsPanel.showAll(); locatorPanel.showAll(); } }); });
+map.on('zoomstart', () => { _mapZooming = true;  iconsPanel.hideAll();  locatorPanel.hideAll();  overlaysPanel.hideAll(); });
+map.on('zoomend',   () => { _mapZooming = false; requestAnimationFrame(() => { if (!_mapZooming) { iconsPanel.showAll(); locatorPanel.showAll(); overlaysPanel.showAll(); } }); });
 
 // ── Map HUD (coordinates + zoom) ──────────────────────────────────────────
 const hudCoords = document.getElementById('hud-coords');
