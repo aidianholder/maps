@@ -1189,7 +1189,7 @@ export class CustomExportControl {
 
     const iconFeatures = iconEls
       .filter(el => el.dataset.icon)
-      .map(el => {
+      .map((el, idx) => {
         const sizePx   = parseInt(el.dataset.size) || 15;
         const iconSize = Math.round((sizePx / 15) * 10) / 10;
         return {
@@ -1199,6 +1199,7 @@ export class CustomExportControl {
             parseFloat(el.getAttribute('data-lat')),
           ]},
           properties: {
+            _iwIdx: idx,
             icon: el.dataset.icon + '-icon',
             iconSize,
             iwTitle:   el.dataset.iwTitle   || '',
@@ -1303,18 +1304,12 @@ ${iconLayersJs}
 
         const _iwPanel = document.createElement('div');
         _iwPanel.id = 'iw-panel';
-        _iwPanel.style.cssText = 'display:none;position:absolute;bottom:0;left:0;right:0;max-height:${Math.round(mapH / 3)}px;background:#fff;overflow-y:auto;padding:16px 20px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);box-sizing:border-box;';
-        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-weight:700;margin-bottom:0;"></div><div id="iw-p-subhead" style="color:#555;margin-bottom:0;white-space:pre-wrap;"></div><div id="iw-p-text" style="font-size:.9em;white-space:pre-wrap;margin-top:10px;"></div>';
+        _iwPanel.style.cssText = 'position:absolute;bottom:0;left:0;right:0;max-height:${Math.round(mapH / 3)}px;background:#fff;overflow-y:auto;padding:16px 20px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);box-sizing:border-box;width:fit-content;min-width:40%;max-width:80%;margin:0 auto 1em;transform:translateY(120%);transition:transform .3s ease;';
+        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-weight:700;margin-bottom:0;"></div><div id="iw-p-subhead" style="color:#555;margin-bottom:0;white-space:pre-wrap;"></div><div id="iw-p-text" style="font-size:.9em;margin-top:10px;line-height:1.5;"></div>';
         map.getContainer().appendChild(_iwPanel);
 
-        let _iwConsumed = false;
-        map.on('click', () => {
-            if (!_iwConsumed) {
-                _iwPanel.style.display = 'none';
-                map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
-            }
-            _iwConsumed = false;
-        });
+        const _iwShow = () => { _iwPanel.style.transform = 'translateY(0)'; };
+        const _iwHide = () => { _iwPanel.style.transform = 'translateY(120%)'; };
 
         // Add highlight layer
         map.addLayer({
@@ -1330,41 +1325,59 @@ ${iconLayersJs}
             }
         }, '${uniqueIcons[0]}');
 
+        let _selectedIconIdx = null;
+
+        const _deselectIcon = () => {
+            _selectedIconIdx = null;
+            _iwHide();
+            map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
+        };
+
         map.on('click', (e) => {
             const features = map.queryRenderedFeatures(e.point, { layers: ${JSON.stringify(uniqueIcons)} });
-            if (features.length > 0) {
-                _iwConsumed = true;
-                const f = features[0];
-                const p = f.properties;
-                if (!p.iwTitle && !p.iwSubhead && !p.iwText) {
-                    _iwPanel.style.display = 'none';
-                    map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
-                    return;
-                }
-                
-                // Highlight
-                // Since MapLibre features don't have stable IDs unless specified in GeoJSON,
-                // and we are using unique icon layers, we filter the highlight layer by icon property
-                map.setFilter('map-icons-highlight', ['==', ['get', 'icon'], p.icon]);
-
-                const titleEl = document.getElementById('iw-p-title');
-                const subheadEl = document.getElementById('iw-p-subhead');
-                const textEl = document.getElementById('iw-p-text');
-
-                titleEl.textContent   = p.iwTitle   || '';
-                subheadEl.textContent = p.iwSubhead || '';
-                textEl.textContent    = p.iwText    || '';
-
-                const displayFont = (p.iwFont || 'Inter').replace(/\\+/g, ' ');
-                _iwPanel.style.fontFamily = '"' + displayFont + '", sans-serif';
-                _iwPanel.style.textAlign  = p.iwAlign || 'left';
-                
-                titleEl.style.fontSize = (p.iwSize * 1.2) + 'px';
-                subheadEl.style.fontSize = (p.iwSize * 0.95) + 'px';
-                textEl.style.fontSize = (p.iwSize * 0.9) + 'px';
-
-                _iwPanel.style.display = 'block';
+            if (features.length === 0) {
+                _deselectIcon();
+                return;
             }
+
+            const f = features[0];
+            const p = f.properties;
+
+            // Clicking the already-selected icon toggles it back off
+            if (_selectedIconIdx === p._iwIdx) {
+                _deselectIcon();
+                return;
+            }
+            _selectedIconIdx = p._iwIdx;
+
+            if (!p.iwTitle && !p.iwSubhead && !p.iwText) {
+                _iwHide();
+                map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
+                return;
+            }
+
+            // Highlight
+            // Since MapLibre features don't have stable IDs unless specified in GeoJSON,
+            // and we are using unique icon layers, we filter the highlight layer by icon property
+            map.setFilter('map-icons-highlight', ['==', ['get', 'icon'], p.icon]);
+
+            const titleEl = document.getElementById('iw-p-title');
+            const subheadEl = document.getElementById('iw-p-subhead');
+            const textEl = document.getElementById('iw-p-text');
+
+            titleEl.textContent   = p.iwTitle   || '';
+            subheadEl.textContent = p.iwSubhead || '';
+            textEl.innerHTML      = p.iwText    || '';
+
+            const displayFont = (p.iwFont || 'Inter').replace(/\\+/g, ' ');
+            _iwPanel.style.fontFamily = '"' + displayFont + '", sans-serif';
+            _iwPanel.style.textAlign  = p.iwAlign || 'left';
+
+            titleEl.style.fontSize = (p.iwSize * 1.2) + 'px';
+            subheadEl.style.fontSize = (p.iwSize * 0.95) + 'px';
+            textEl.style.fontSize = (p.iwSize * 0.9) + 'px';
+
+            _iwShow();
         });` : '';
 
     const locatorJs = hasLocators ? locatorFeatures.map(f => {
@@ -1403,6 +1416,8 @@ ${iconLayersJs}
         .lm-popup-dark.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #000; }
         .lm-popup-dark.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #000; }
         .lm-popup-dark.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #000; }
+        #iw-p-text a { color: inherit; text-decoration: underline; }
+        #iw-p-text ul, #iw-p-text ol { padding-left: 1.4em; margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -1416,7 +1431,9 @@ ${iconLayersJs}
         style: ${JSON.stringify(styleObj)},
         center: [${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}],
         zoom: ${zoom.toFixed(3)},
+        attributionControl: false,
     });
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     map.on('load', async () => {
 ${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}
