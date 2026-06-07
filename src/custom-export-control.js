@@ -1092,6 +1092,27 @@ export class CustomExportControl {
     this._dpiRow = this._row('DPI', this._buildDPISelect());
     table.appendChild(this._dpiRow);
 
+    // HTML-export-only options — checkboxes, unchecked by default, only shown
+    // when Format is set to HTML.
+    const { row: zoomCtrlRow, checkbox: zoomCtrlCheckbox } =
+      this._checkboxRow('Zoom control', 'mapbox-gl-export-zoom-control');
+    const { row: staticRow, checkbox: staticCheckbox } =
+      this._checkboxRow('Make Map Static', 'mapbox-gl-export-static');
+    const { row: scaleBarRow, checkbox: scaleBarCheckbox } =
+      this._checkboxRow('Scale bar', 'mapbox-gl-export-scale-bar');
+
+    this._zoomControlCheckbox = zoomCtrlCheckbox;
+    this._staticCheckbox      = staticCheckbox;
+    this._scaleBarCheckbox    = scaleBarCheckbox;
+
+    this._htmlOptionRows = [zoomCtrlRow, staticRow, scaleBarRow];
+    const isHtml = this._formatSelect?.value === 'html';
+    this._htmlOptionRows.forEach(row => { row.style.display = isHtml ? '' : 'none'; });
+
+    table.appendChild(zoomCtrlRow);
+    table.appendChild(staticRow);
+    table.appendChild(scaleBarRow);
+
     const btnRow  = document.createElement('tr');
     const btnCell = document.createElement('td');
     btnCell.colSpan = 2;
@@ -1176,9 +1197,30 @@ export class CustomExportControl {
     const formats = { ...Object.fromEntries(Object.entries(Format)), 'HTML': 'html' };
     const sel = this._select('mapbox-gl-export-format-type', formats, this._options.Format);
     sel.addEventListener('change', () => {
-      if (this._dpiRow) this._dpiRow.style.display = sel.value === 'html' ? 'none' : '';
+      const isHtml = sel.value === 'html';
+      if (this._dpiRow) this._dpiRow.style.display = isHtml ? 'none' : '';
+      if (this._htmlOptionRows) {
+        this._htmlOptionRows.forEach(row => { row.style.display = isHtml ? '' : 'none'; });
+      }
     });
+    this._formatSelect = sel;
     return sel;
+  }
+
+  _checkboxRow(label, id, checked = false) {
+    const tr = document.createElement('tr');
+    const th = document.createElement('td');
+    th.style.cssText = 'font-size:12px; padding:3px 8px 3px 0; white-space:nowrap; color:#444;';
+    th.textContent = label;
+    const td = document.createElement('td');
+    td.style.width = '100%';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = id;
+    checkbox.checked = checked;
+    td.appendChild(checkbox);
+    tr.append(th, td);
+    return { row: tr, checkbox };
   }
 
   _buildDPISelect() {
@@ -1193,7 +1235,15 @@ export class CustomExportControl {
   _generate() {
     this._panel.style.display = 'none';
     const format = this._panel.querySelector('#mapbox-gl-export-format-type').value;
-    if (format === 'html') { this._generateHtml(); return; }
+    if (format === 'html') {
+      const htmlOptions = {
+        zoomControl: this._panel.querySelector('#mapbox-gl-export-zoom-control')?.checked ?? false,
+        staticMap:   this._panel.querySelector('#mapbox-gl-export-static')?.checked ?? false,
+        scaleBar:    this._panel.querySelector('#mapbox-gl-export-scale-bar')?.checked ?? false,
+      };
+      this._generateHtml(htmlOptions);
+      return;
+    }
     const dpi  = Number(this._panel.querySelector('#mapbox-gl-export-dpi-type').value);
     const size = this._getCurrentExportSize();
     new MapGenerator(this._map, size, dpi, format, Unit.mm, this._options.Filename).generate();
@@ -1201,7 +1251,8 @@ export class CustomExportControl {
 
   // ── HTML embed export ──────────────────────────────────────────────────────
 
-  _generateHtml() {
+  _generateHtml(htmlOptions = {}) {
+    const { zoomControl = false, staticMap = false, scaleBar = false } = htmlOptions;
     const center    = this._map.getCenter();
     const zoom      = this._map.getZoom();
     const styleObj  = this._map.getStyle();
@@ -1233,6 +1284,7 @@ export class CustomExportControl {
     const html = this._buildHtml({
       center, zoom, styleObj, maxW, mapH,
       locatorFeatures, iconFeatures, iconDataMap, textFeatures, font, drawFeatures,
+      zoomControl, staticMap, scaleBar,
     });
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -1376,7 +1428,7 @@ export class CustomExportControl {
       });
   }
 
-  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, textFeatures = [], font, drawFeatures = [] }) {
+  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, textFeatures = [], font, drawFeatures = [], zoomControl = false, staticMap = false, scaleBar = false }) {
     const hasLocators = locatorFeatures.length > 0;
     const hasIcons    = iconFeatures.length > 0;
     const hasText     = textFeatures.length > 0;
@@ -1622,10 +1674,10 @@ ${iconLayersJs}
         style: ${JSON.stringify(styleObj)},
         center: [${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}],
         zoom: ${zoom.toFixed(3)},
-        attributionControl: false,
+        attributionControl: false,${staticMap ? '\n        interactive: false,' : ''}
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
-
+${zoomControl ? "    map.addControl(new maplibregl.NavigationControl());\n" : ''}${scaleBar ? "    map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }));\n" : ''}
     map.on('load', async () => {
 ${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}${textJs}
     });
