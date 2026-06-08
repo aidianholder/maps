@@ -16,6 +16,7 @@ Along the top of the map you'll find a row of tool buttons just to the right of 
 | **A** | Opens the **Labels** panel — add and style locator callouts |
 | 🖼 (icons) | Opens the **Icons** panel — place small map symbols |
 | ✏ (pencil, left side) | Opens the **Draw** panel — draw lines, shapes, and points |
+| 🔖 (overlays icon, right of the Draw button) | Opens the **Overlays** panel — toggle points-of-interest groups and place styled text annotations |
 
 The **geocoder search box** sits in the top-right corner. Type any address, city, or place name and the map flies to it.
 
@@ -143,7 +144,7 @@ Drag the label body to reposition it. The small **✕** button that appears when
 > Place a **line-style** label pointing to the building. Type *"County Courthouse"*. The line style is less visually heavy than a filled box, which suits a named landmark that readers may already know.
 
 > **Proposed housing development**
-> You'll draw a polygon over the site (see Step 7). Add a **white box, tail-down** label just above the polygon. Two-line text works well here: first line *"Proposed"*, second line *"Oak Street Apartments"*. The white box distinguishes the label from the polygon fill colour.
+> You'll draw a polygon over the site (see Step 8). Add a **white box, tail-down** label just above the polygon. Two-line text works well here: first line *"Proposed"*, second line *"Oak Street Apartments"*. The white box distinguishes the label from the polygon fill colour.
 
 > **Flood-prone neighbourhood in a climate story**
 > Use **plain text** to label two or three neighbourhood names directly on the map. Plain text is less intrusive than boxed labels and lets you mark several areas without cluttering the frame.
@@ -194,13 +195,51 @@ The panel uses the **Maki** icon set, the same set used by OpenStreetMap and man
 
 > **Example — Drive-by shooting:** Place a solid **dot** or **circle** icon at the shooting address. Keep the icon small (15–18 px). Add a dark-box locator label (Step 5) nearby with the street address or cross-street.
 
-> **Example — Hospital closure:** Place the **hospital** icon on the building. Use a white-box label with the hospital name. Optionally draw a line or polygon (Step 7) to show the service area affected.
+> **Example — Hospital closure:** Place the **hospital** icon on the building. Use a white-box label with the hospital name. Optionally draw a line or polygon (Step 8) to show the service area affected.
 
 > **Example — School shooting:** Place the **school** icon. Add a label with the school name. At a tight zoom level, add a second label with a brief note like *"3 students injured, Nov. 14"* if the map will be used as a standalone graphic rather than alongside body text.
 
 ---
 
-## Step 7 — Draw features
+## Step 7 — Add overlays: points of interest and text annotations
+
+The **Overlays** panel groups two features that don't fit neatly into Labels or Icons: bulk **points-of-interest** toggles, and free-form **text annotations** you place and style yourself. Click the overlays icon (just to the right of the Draw button) to open it. You'll see two collapsible submenus, **POIs** and **Text**.
+
+### POIs submenu
+
+Rather than placing icons one at a time, the POIs submenu lets you turn on whole categories of points of interest already present in the basemap data — Government, Medical, Education, and similar groupings. Check a group to draw every matching point in the current view; uncheck to remove it. This is a faster way to populate a map with dozens of consistent symbols (courthouses, hospitals, schools) than placing them individually, and the groups survive a base-style switch.
+
+> **Example — "Where to get help" resource map:** Rather than hand-placing two dozen icons, open the POIs submenu and turn on **Medical** and **Government** (for community/social-service buildings). Combine with one or two hand-placed icons (Step 6) for the specific location your story focuses on.
+
+### Text submenu — placing styled text directly on the map
+
+The Text submenu lets you write titles, captions, or arbitrary notes straight onto the map — geographically anchored, so they stay in place as readers (or you) pan and zoom.
+
+**To place text:**
+
+1. Open the Text submenu and set your **font**, **size**, **B / I / U** style, **text colour**, and optional **Border** / **Background** (each with its own colour swatch) *before* you place the text — these become that annotation's starting style.
+2. Click **"Click map to place text"**. The cursor changes to a text caret — this arms placement mode for a single click.
+3. Click anywhere on the map. A small editable text box appears, anchored by its **left edge** to the spot you clicked, ready for you to type. Placement mode automatically turns itself off after this one placement, so you won't accidentally drop a second box.
+
+**To edit existing text:**
+
+- **Click once** on a placed text element to select it — its style loads back into the submenu controls, which you can then adjust live (font, size, styles, colour, border, background all update immediately).
+- **Click and hold, then drag** to move the element to a new map location; a short click instead focuses it for typing.
+- Hover over or select a text element to reveal its small **✕** delete button.
+
+The Text submenu deliberately stays open while you place and style annotations — clicking the map to drop text won't close it. It only closes when you take an explicit action: open a different toolbar menu, collapse the Text submenu's header, or click the Overlays panel's **✕** button.
+
+> **Example — Map title overlaid on the frame:** Place a text annotation near the top of your export frame, set the font to something with presence (try a larger size, 22–28 px), turn on **Background** with a white or cream swatch so it stands out against busy map tiles, and type your headline directly onto the map.
+
+> **Example — Annotating a specific spot:** Click "Click map to place text," click the location you want to call out, and type a short note like *"Site of proposed entrance"*. Turn on **Border** to make it read as a distinct annotation rather than a basemap label.
+
+> **Example — Multiple labelled zones:** Because the Text submenu stays open, you can place several short labels in sequence — click "Click map to place text," click a location, type, then click the place button again for the next one — without losing your style settings between placements.
+
+Like locator labels and icons, text annotations composite cleanly onto PDF/PNG/JPEG/SVG exports, and are recreated with matching styling and positioning in HTML exports.
+
+---
+
+## Step 8 — Draw features
 
 The Draw panel lets you add lines, shapes, and points directly onto the map. Use it to show areas, routes, or precise locations that no pre-existing map feature captures.
 
@@ -258,7 +297,7 @@ For lines, thicker isn't always better. A **2–3 px** line is readable at most 
 
 ---
 
-## Step 8 — Export your map
+## Step 9 — Export your map
 
 ### PDF and image exports
 
@@ -275,26 +314,40 @@ Click the **printer icon** (top-right). In the export panel:
 
 > **For breaking news where speed matters:** JPEG at 150 DPI produces a smaller file and uploads faster.
 
-See Part 9 for important copyright notice for photo/pdf exports.
+See Part 10 for important copyright notice for photo/pdf exports.
 
 ### Embeddable HTML map
 
 The HTML export generates a fully self-contained interactive map that you can paste into a CMS or host on any web server.
 
-In the export panel, choose **HTML** from the Format dropdown and click **Generate**. The downloaded `.html` file is a complete interactive MapLibre map. It:
+In the export panel, choose **HTML** from the Format dropdown. Three new checkboxes appear (see below) — leave them unchecked for the default behaviour, or tick the ones you want — then click **Generate**. The downloaded `.html` file is a complete interactive MapLibre map. It:
 
 - **Reflects your layer choices exactly** — any layers you've turned off in the Layers panel are absent from the exported map; layers you've turned on (including Terrain hillshade) are included
 - Reproduces your labels as interactive popups
 - Displays your icons and drawn features as map layers; icons with infowindow content open a slide-up panel when clicked
+- Reproduces your text annotations in the same place, with the same font, size, style, colour, and any border/background you set
 - Is centred and zoomed to match the export frame
+- Includes a small, collapsed copyright/attribution notice in the bottom-right corner (see Step 10)
 - Has `width: 100%` so it fills whatever column or container it's placed in; the **height is fixed** to match the proportions of your export frame, so place it inside a container that controls the width
+
+#### HTML-only export options
+
+These three checkboxes only appear when the Format dropdown is set to **HTML**, and are **unchecked by default**:
+
+| Option | What it does |
+|--------|-------------|
+| **Zoom control** | Adds the standard zoom in/out buttons to the top-left corner of the exported map, so readers can zoom without a scroll wheel or pinch gesture |
+| **Make Map Static** | Locks the exported map so readers can't pan, zoom, or rotate it — useful when you want the map to behave like a fixed image embedded in the page rather than an interactive widget |
+| **Scale bar** | Adds a scale bar (in miles/feet) to the bottom-left corner of the exported map, helping readers gauge real-world distance |
+
+> **Tip — Choosing the right combination:** For a map meant to be explored (e.g. "find your polling place"), check **Zoom control** and **Scale bar** so readers can navigate and gauge distance. For a map that's meant to be read like a graphic — a single, framed view illustrating one moment of the story — check **Make Map Static** so the reader's view always matches the one you composed.
 
 > **Tip — CMS embeds:** Most CMSes let you paste raw HTML into an article. Drop the file contents (or a hosted URL) into an HTML embed block. The map will size itself to the column width automatically. If it looks too tall or too short, adjust the export frame proportions before regenerating.
 
 Drop the file into your CMS's HTML embed block, or send it to your web team to host at a URL.
 
 ---
-## Step 9 — Copyright Notice
+## Step 10 — Copyright Notice
 
 ### PDF and image exports
 
@@ -305,7 +358,7 @@ If you don't you're violating the law, but you're also a bad person who is screw
 
 ### HTML Exports
 
-The requisite copyright and courtesy is already included along the bottom of the map.
+The requisite copyright and courtesy is already included along the bottom of the map. It starts in a collapsed (compact) state so it doesn't crowd the map — readers can click it to expand and see the full attribution text.
 
 ---
 
@@ -314,13 +367,17 @@ The requisite copyright and courtesy is already included along the bottom of the
 | Story situation | Recommended tools |
 |-----------------|-------------------|
 | Pinpointing a single address | Icon (dot) + dark-box locator label |
-| Naming a neighbourhood or area | Plain-text label directly on the map |
+| Naming a neighbourhood or area | Plain-text label directly on the map, or a Text overlay with Background turned on |
+| Adding a headline or freeform note to the map itself | Overlays panel → Text submenu |
+| Populating a map with many similar symbols at once | Overlays panel → POIs submenu (toggle a whole category) |
 | Showing a perimeter or zone | Polygon (semi-transparent fill) |
 | Showing a route or journey | Line |
 | Marking a named institution | Icon (appropriate type) + line-style label |
 | Comparing two or more locations | Multiple icons or polygons, each in a different colour |
 | Map for print | PDF, 300 DPI, A6 or custom to column width |
 | Map for web CMS | PNG, 150 DPI, or HTML embed |
+| Interactive embed readers can explore | HTML embed with Zoom control and Scale bar checked |
+| Embed that should look/behave like a fixed graphic | HTML embed with Make Map Static checked |
 | Map for social media | PNG, 150 DPI, square or 4:5 aspect ratio |
 | Busy or distracting background | Open Layers panel and uncheck POIs, minor labels, and boundaries |
 | Map needs to feel neutral/editorial | Newsprint or Positron style |

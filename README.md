@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 ---
 
-An interactive map editing and export tool built on MapLibre GL JS. Users can toggle map layers, place and style locator labels and icons, draw and style vector features, geocode addresses, and export the current view as PDF, PNG, JPEG, SVG, or an embeddable HTML slippy map.
+An interactive map editing and export tool built on MapLibre GL JS. Users can toggle map layers, place and style locator labels, icons, points-of-interest overlays, and free-form text annotations, draw and style vector features, geocode addresses, and export the current view as PDF, PNG, JPEG, SVG, or an embeddable HTML slippy map.
 
 ---
 
@@ -47,6 +47,18 @@ An interactive map editing and export tool built on MapLibre GL JS. Users can to
 - Icons composite on top of PDF/PNG/JPEG/SVG exports
 - **Infowindow editor** — selecting a placed icon opens a slide-up editor with **Title**, **Subhead**, and **Text** fields plus font family, size, and L/C/R alignment controls; content is saved per-icon with the *enter* button and appears as a click-activated slide-up panel at the bottom of HTML exports
 
+### Overlays Panel
+The **Overlays** panel (toolbar icon to the right of Draw) groups two kinds of map annotations into collapsible submenus:
+
+- **POIs** — toggle curated groups of points-of-interest (Government, Medical, Education, etc.) drawn from the active style's POI source-layer; each group becomes its own MapLibre layer with a class/subclass filter, and groups persist across base-style switches
+- **Text** — place free-form, geographically-anchored text annotations directly on the map:
+  - Click **"Click map to place text"** to arm placement mode (the cursor changes to a text caret); the next map click drops a left-edge-anchored, editable text element at that location and the mode auto-disarms after one placement
+  - Click any placed text element to select it for editing — typing updates its content in place, and dragging moves it to a new geographic anchor (a short click focuses the text for editing; a real drag relocates it)
+  - Style controls — **font**, **size**, **Bold/Italic/Underline** toggles, **text colour**, an optional **Border** (with its own colour picker), and an optional **Background** (with its own colour picker) — apply to newly placed text and live-update the currently selected element ("arm and place" and "select and edit" both work against the same controls)
+  - The submenu stays open across map clicks made while placing text, so you can place and style several annotations in a row; it only closes via an explicit action — opening another toolbar menu, collapsing the Text submenu header, or the panel's "✕" button
+  - Text overlays are anchored to their geographic coordinate at the **left edge, vertically centred** — like locator labels and icons, they stay pinned to the map as you pan and zoom
+  - Composite on top of PDF/PNG/JPEG/SVG exports via 2D canvas rendering, and are recreated as `maplibregl.Marker` elements (same left-anchored positioning) in HTML exports
+
 ### Draw Panel
 - Five modes via terra-draw: **Point**, **Line**, **Circle**, **Polygon**, **Select**
 - Independent styling per committed feature — draw a blue polygon, change the style, draw a red polygon; both retain their original colours
@@ -72,10 +84,16 @@ An interactive map editing and export tool built on MapLibre GL JS. Users can to
   - Full current style inlined from `map.getStyle()` — faithfully reflects the user's layer visibility choices, including any layers toggled off in the Layers panel and dynamically added sources (e.g. hillshade)
   - PMTiles protocol (`pmtiles@3`) included and registered, so hillshade and other PMTiles tile sources resolve correctly
   - Locator labels rendered as MapLibre popups
-  - Icons as symbol layers (PNG sprites from the CDN); icons with infowindow data show a slide-up panel on click
+  - Icons as symbol layers (PNG sprites from the CDN); icons with infowindow data show a slide-up panel on click — the panel slides in/out with a CSS transition, is sized with `width: fit-content; min-width: 40%; max-width: 80%`, and a single click on the selected icon both deselects it and dismisses the panel
+  - Text overlays recreated as left-anchored `maplibregl.Marker` elements carrying styled HTML (font, size, weight/style/decoration, colour, optional border and background), positioned identically to their live geo-anchored counterparts
   - Drawn features as GeoJSON sources and appropriate line/fill/circle layers
+  - A compact attribution control (bottom-right), starting in its **collapsed** state
   - Map centred and zoomed to match the export overlay
   - Map is `width: 100%` to fill whatever container the embed is placed in; height is fixed in pixels to match the export overlay's proportions
+  - **HTML-only export options** — three checkboxes appear in the export panel only when Format is set to HTML (all unchecked by default):
+    - **Zoom control** — adds a `maplibregl.NavigationControl` to the exported map's default (top-left) position
+    - **Make Map Static** — sets `interactive: false` on the exported map so it cannot be panned, zoomed, or rotated by the reader
+    - **Scale bar** — adds a `maplibregl.ScaleControl` (imperial/U.S. units) to the exported map's default (bottom-left) position
 
 ---
 
@@ -104,6 +122,7 @@ src/
   layer-panel.js            Layer visibility panel
   locator-panel.js          Locator label panel and marker management
   icons-panel.js            Map icon panel and marker management
+  overlays-panel.js         Overlays panel — POI group toggles and text-annotation placement/styling
   draw-panel.js             Terra-draw integration (modes, per-feature styling, export snapshot)
   custom-export-control.js  Export overlay, PDF/PNG/SVG export, HTML embed export
 ```
@@ -128,17 +147,18 @@ src/
 └─────────────────────────────────────────────────────────┘
 ```
 
-The three toolbar dropdowns (Layers, Labels, Icons) and the side-mounted Draw button each open a `panel-dropdown` div that overlays the map without affecting the viewport. The draw button sits below the zoom controls on the left edge.
+The toolbar dropdowns (Layers, Labels, Icons, Overlays) and the side-mounted Draw button each open a `panel-dropdown` div that overlays the map without affecting the viewport. The draw button sits below the zoom controls on the left edge.
 
 ### Export Architecture
 
-PDF/PNG/JPEG/SVG exports are produced by `MapGenerator` (a subclass of `MapGeneratorBase` from `@watergis/maplibre-gl-export`). A hidden off-screen MapLibre instance is created, fitted to the geographic bounds of the export overlay, and rendered to canvas. Three compositing passes are then applied before the final image is encoded:
+PDF/PNG/JPEG/SVG exports are produced by `MapGenerator` (a subclass of `MapGeneratorBase` from `@watergis/maplibre-gl-export`). A hidden off-screen MapLibre instance is created, fitted to the geographic bounds of the export overlay, and rendered to canvas. Four compositing passes are then chained together (each wrapping the previous canvas) before the final image is encoded:
 
 1. **`_compositeLocators`** — reprojects each locator marker's lng/lat into the hidden map's coordinate space and draws labels using the 2D canvas API
 2. **`_compositeIcons`** — same for map icons
-3. **`_compositeDrawFeatures`** — draws terra-draw vector features (points, lines, polygons) using the GeoJSON snapshot from `DrawPanel.getSnapshot()`
+3. **`_compositeText`** — same for text overlays; draws each element left-anchored and vertically centred on its projected geographic point, honouring font, size, weight/style/decoration, colour, and optional border/background fills (`_drawTextOverlay`)
+4. **`_compositeDrawFeatures`** — draws terra-draw vector features (points, lines, polygons) using the GeoJSON snapshot from `DrawPanel.getSnapshot()`
 
-The HTML export does not use the hidden-map rendering path. Instead, `_generateHtml()` calls `map.getStyle()` to snapshot the live style — with any layers the user has toggled off already absent, and any dynamically added sources (hillshade, draw features, etc.) already present. The fence source and layer are stripped from the snapshot before inlining. The result is a standalone HTML file that initialises MapLibre with the inlined style object; locators become popups, icons and drawn features become GeoJSON symbol/line/fill layers, and the `pmtiles@3` protocol is registered so PMTiles sources resolve correctly.
+The HTML export does not use the hidden-map rendering path. Instead, `_generateHtml()` calls `map.getStyle()` to snapshot the live style — with any layers the user has toggled off already absent, and any dynamically added sources (hillshade, draw features, etc.) already present. The fence source and layer are stripped from the snapshot before inlining. The result is a standalone HTML file that initialises MapLibre with the inlined style object; locators become popups, icons and drawn features become GeoJSON symbol/line/fill layers, text overlays are recreated as left-anchored `maplibregl.Marker` elements with inlined styling (collected from the live DOM by `_collectTextFeatures()`), and the `pmtiles@3` protocol is registered so PMTiles sources resolve correctly. Optional checkboxes in the export panel (visible only when Format is HTML) let the user add a zoom (`NavigationControl`) and/or imperial-unit scale bar (`ScaleControl`) to the exported map, or set `interactive: false` to produce a non-interactive "static" embed.
 
 Icon PNGs in the HTML embed are loaded from `https://mapicons.nyc3.cdn.digitaloceanspaces.com/png/maki/<name>.png`.
 

@@ -145,19 +145,31 @@ function closeAllDropdowns() {
 });
 
 // Click anywhere outside a dropdown or toolbar button closes all panels.
-// Two exceptions:
+// Three exceptions:
 //   1. Clicks inside an already-open panel keep that panel open (e.g. color
 //      pickers, sliders, checkboxes — all live inside the panel).
 //   2. Map-canvas clicks never close the draw panel so the user can place
 //      vertices while the panel stays visible.
+//   3. Map-canvas clicks never close the Overlays panel while its "Text"
+//      submenu is expanded, so the user can click the map to place text
+//      without losing the submenu — it only closes via an explicit action
+//      (another toolbar menu, the submenu header, or the panel's "x").
 document.addEventListener('click', (e) => {
-  const drawPanel = document.getElementById('panel-draw');
-  const inMap     = document.getElementById('map').contains(e.target);
+  const drawPanel     = document.getElementById('panel-draw');
+  const overlaysPanelEl = document.getElementById('panel-overlays');
+  const inMap         = document.getElementById('map').contains(e.target);
 
   // Exception 2 — map click while draw panel is open
   if (inMap && drawPanel.classList.contains('open')) {
     document.querySelectorAll('.panel-dropdown:not(#panel-draw)').forEach(p => p.classList.remove('open'));
     document.querySelectorAll('.tb-btn:not(#btn-draw)').forEach(b => b.classList.remove('active'));
+    return;
+  }
+
+  // Exception 3 — map click while the Overlays panel's Text submenu is open
+  if (inMap && overlaysPanelEl.classList.contains('open') && overlaysPanel.isTextSubmenuOpen()) {
+    document.querySelectorAll('.panel-dropdown:not(#panel-overlays)').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.tb-btn:not(#btn-overlays)').forEach(b => b.classList.remove('active'));
     return;
   }
 

@@ -368,6 +368,7 @@ export class OverlaysPanel {
     textItem.className = 'ovr-menu-item';
 
     const textDetails = document.createElement('details');
+    this._textDetails = textDetails;
 
     const textSummary = document.createElement('summary');
     textSummary.className = 'ovr-submenu-header';
@@ -789,6 +790,16 @@ export class OverlaysPanel {
   _applyTextTransform(el, lng, lat) {
     const pt = this._map.project([lng, lat]);
     el.style.transform = `translate(0,-50%) translate(${pt.x}px,${pt.y}px) rotateX(0deg) rotateZ(0deg)`;
+  }
+
+  /**
+   * Whether the "Text" submenu is currently expanded. Used by the toolbar's
+   * outside-click handler to keep the Overlays panel open when the user
+   * clicks the map to place text — the panel should only close via an
+   * explicit action (another menu button, the submenu header, or the "x").
+   */
+  isTextSubmenuOpen() {
+    return this._textDetails?.open ?? false;
   }
 
   /** Hide all text overlays during zoom to prevent pipeline-mismatch drift. */
