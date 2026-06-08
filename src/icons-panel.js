@@ -121,7 +121,133 @@ export class IconsPanel {
 
     this._iwTitle   = makeField('Title');
     this._iwSubhead = makeField('Subhead', 'textarea');
-    this._iwText    = makeField('Text', 'textarea');
+
+    // ── Rich-text "Text" field ────────────────────────────────────────────
+    const textRow = document.createElement('div');
+    textRow.className = 'iw-editor-row';
+    const textLabel = document.createElement('label');
+    textLabel.textContent = 'Text';
+
+    const textWrap = document.createElement('div');
+    textWrap.style.flex = '1';
+    textWrap.style.display = 'flex';
+    textWrap.style.flexDirection = 'column';
+    textWrap.style.gap = '3px';
+
+    // Toolbar
+    const toolbar = document.createElement('div');
+    toolbar.className = 'iw-toolbar';
+
+    const makeFmtBtn = (html, title, cmd) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = html;
+      btn.title = title;
+      btn.className = 'iw-tool-btn';
+      btn.addEventListener('mousedown', e => e.preventDefault()); // keep focus
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.execCommand(cmd, false, null);
+        richEditor.focus();
+      });
+      return btn;
+    };
+
+    const toolSep = () => {
+      const s = document.createElement('span');
+      s.className = 'iw-toolbar-sep';
+      return s;
+    };
+
+    toolbar.appendChild(makeFmtBtn('<b>B</b>', 'Bold',      'bold'));
+    toolbar.appendChild(makeFmtBtn('<i>I</i>', 'Italic',    'italic'));
+    toolbar.appendChild(makeFmtBtn('<u>U</u>', 'Underline', 'underline'));
+    toolbar.appendChild(toolSep());
+    toolbar.appendChild(makeFmtBtn('&#8226;&#8212;', 'Unordered list', 'insertUnorderedList'));
+    toolbar.appendChild(makeFmtBtn('1&#8212;',       'Ordered list',   'insertOrderedList'));
+    toolbar.appendChild(toolSep());
+
+    // Link button — saves selection before dialog opens
+    let _savedRange = null;
+    const linkBtn = document.createElement('button');
+    linkBtn.type = 'button';
+    linkBtn.textContent = '🔗';
+    linkBtn.title = 'Insert link';
+    linkBtn.className = 'iw-tool-btn';
+    linkBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) _savedRange = sel.getRangeAt(0).cloneRange();
+    });
+    linkBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      linkDialog.style.display = 'flex';
+      linkUrlInput.value = '';
+      setTimeout(() => linkUrlInput.focus(), 0);
+    });
+    toolbar.appendChild(linkBtn);
+
+    // Contenteditable editor
+    const richEditor = document.createElement('div');
+    richEditor.contentEditable = 'true';
+    richEditor.className = 'iw-content-editor';
+    richEditor.addEventListener('click', e => e.stopPropagation());
+    this._iwText = richEditor;
+
+    // Link dialog (inline below editor)
+    const linkDialog = document.createElement('div');
+    linkDialog.className = 'iw-link-dialog';
+    linkDialog.style.display = 'none';
+
+    const linkUrlInput = document.createElement('input');
+    linkUrlInput.type = 'url';
+    linkUrlInput.className = 'iw-link-input';
+    linkUrlInput.placeholder = 'https://...';
+    linkUrlInput.addEventListener('click', e => e.stopPropagation());
+
+    const applyLink = () => {
+      const url = linkUrlInput.value.trim();
+      linkDialog.style.display = 'none';
+      if (!url) { richEditor.focus(); return; }
+      richEditor.focus();
+      if (_savedRange) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(_savedRange);
+        _savedRange = null;
+      }
+      document.execCommand('createLink', false, url);
+      // Ensure links open in new tab
+      richEditor.querySelectorAll('a[href]').forEach(a => { if (!a.target) a.target = '_blank'; });
+    };
+
+    linkUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); applyLink(); }
+      if (e.key === 'Escape') { e.preventDefault(); linkDialog.style.display = 'none'; richEditor.focus(); }
+    });
+
+    const linkApplyBtn = document.createElement('button');
+    linkApplyBtn.type = 'button';
+    linkApplyBtn.textContent = 'Apply';
+    linkApplyBtn.className = 'iw-link-apply';
+    linkApplyBtn.addEventListener('mousedown', e => e.preventDefault());
+    linkApplyBtn.addEventListener('click', (e) => { e.stopPropagation(); applyLink(); });
+
+    const linkCancelBtn = document.createElement('button');
+    linkCancelBtn.type = 'button';
+    linkCancelBtn.textContent = 'Cancel';
+    linkCancelBtn.className = 'iw-link-cancel';
+    linkCancelBtn.addEventListener('mousedown', e => e.preventDefault());
+    linkCancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      linkDialog.style.display = 'none';
+      richEditor.focus();
+    });
+
+    linkDialog.append(linkUrlInput, linkApplyBtn, linkCancelBtn);
+    textWrap.append(toolbar, richEditor, linkDialog);
+    textRow.append(textLabel, textWrap);
+    fields.appendChild(textRow);
 
     // ── Font controls for Infowindow ──────────────────────────────
     const iwControls = document.createElement('div');
@@ -201,7 +327,7 @@ export class IconsPanel {
       if (!this._activeEl) return;
       this._activeEl.dataset.iwTitle   = this._iwTitle.value;
       this._activeEl.dataset.iwSubhead = this._iwSubhead.value;
-      this._activeEl.dataset.iwText    = this._iwText.value;
+      this._activeEl.dataset.iwText    = this._iwText.innerHTML;
       this._activeEl.dataset.iwFont    = this._iwFontSel.value;
       this._activeEl.dataset.iwSize    = this._iwSizeInput.value;
       this._activeEl.dataset.iwAlign   = this._iwAlign;
@@ -222,7 +348,7 @@ export class IconsPanel {
 
       this._iwTitle.value   = '';
       this._iwSubhead.value = '';
-      this._iwText.value    = '';
+      this._iwText.innerHTML = '';
       this._iwFontSel.value = 'Inter';
       this._iwSizeInput.value = 14;
       this._iwAlign = 'left';
@@ -298,16 +424,18 @@ export class IconsPanel {
     this._icons.push({ marker, el, iconName });
   }
 
+  /** Hide all icon markers during zoom to prevent pipeline-mismatch drift. */
+  hideAll() {
+    this._icons.forEach(({ el }) => { el.style.visibility = 'hidden'; });
+  }
+
   /**
-   * Snap every icon to its exact projected position after a zoom animation
-   * settles. Calling setLngLat with the existing value triggers MapLibre's
-   * _update() synchronously, correcting any drift that accumulated during the
-   * animation frames.
+   * Reveal all icon markers after a zoom animation fully settles.
+   * By the time this is called, MapLibre's own moveend → _update() has already
+   * projected every marker to the correct pixel position — we just unhide.
    */
-  snapPositions() {
-    this._icons.forEach(({ marker }) => {
-      marker.setLngLat(marker.getLngLat());
-    });
+  showAll() {
+    this._icons.forEach(({ el }) => { el.style.visibility = ''; });
   }
 
 
@@ -325,9 +453,9 @@ export class IconsPanel {
     }
 
     // Populate and show Infowindow editor
-    this._iwTitle.value   = el.dataset.iwTitle   || '';
-    this._iwSubhead.value = el.dataset.iwSubhead || '';
-    this._iwText.value    = el.dataset.iwText    || '';
+    this._iwTitle.value     = el.dataset.iwTitle   || '';
+    this._iwSubhead.value   = el.dataset.iwSubhead || '';
+    this._iwText.innerHTML  = el.dataset.iwText    || '';
     this._iwFontSel.value = el.dataset.iwFont    || 'Inter';
     this._iwSizeInput.value = el.dataset.iwSize  || 14;
     this._iwAlign = el.dataset.iwAlign || 'left';

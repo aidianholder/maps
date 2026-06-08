@@ -316,10 +316,17 @@ export class LocatorPanel {
     .setLngLat(center)
     .addTo(this._map);
 
-    // ── Override MapLibre's async _update chain ────────────────────────────
-    // MapLibre's _update schedules secondary updates via frameAsync → once('render'),
-    // creating a race condition that fights with our syncPositions.  We disable it
-    // and take direct, synchronous control of the CSS transform instead.
+    // ── Remove MapLibre's _update from all map event listeners ────────────
+    // Setting marker._update = () => {} only shadows the instance property —
+    // the original arrow-function reference that addTo() passed to map.on()
+    // is still registered and would keep firing after every syncPositions
+    // call, creating a race on the CSS transform.  We must remove it by the
+    // original reference before overwriting the property.
+    const _originalUpdate = marker._update;
+    this._map.off('move',                 _originalUpdate);
+    this._map.off('moveend',              _originalUpdate);
+    this._map.off('terrain',              _originalUpdate);
+    this._map.off('projectiontransition', _originalUpdate);
     marker._update = () => {};
 
     // Store lng/lat as data attributes for reliable export & syncPositions
@@ -531,6 +538,26 @@ export class LocatorPanel {
     });
   }
 
+
+  /** Hide all locator markers during zoom so pipeline-mismatch drift is invisible. */
+  hideAll() {
+    this._markers.forEach(({ el }) => { el.style.visibility = 'hidden'; });
+  }
+
+  /**
+   * Re-project every locator to its correct post-zoom pixel position and reveal it.
+   * Called after zoomend + rAF so tiles and markers are both in the settled state.
+   */
+  showAll() {
+    for (const { el, style } of this._markers) {
+      const lng = parseFloat(el.getAttribute('data-lng'));
+      const lat = parseFloat(el.getAttribute('data-lat'));
+      if (!isNaN(lng) && !isNaN(lat)) {
+        this._applyTransform(el, style, lng, lat);
+      }
+      el.style.visibility = '';
+    }
+  }
 
   /**
    * Re-project all markers from their stored lng/lat to screen coords and set

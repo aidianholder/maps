@@ -27,6 +27,7 @@ const STYLES = [
   { title: 'Proto',     uri: '/styles/protostyle2.json' },
   { title: 'Positron',  uri: '/styles/positron.json' },
   { title: 'Bright',    uri: '/styles/osmbright.json' },
+  { title: 'basic',     uri: '/styles/basic.json' },
 ];
 
 const DEFAULT_STYLE = 'Newsprint';
@@ -98,6 +99,7 @@ map.addControl(
       '/styles/osmbright.json':   'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/osmbright.json',
       '/styles/protostyle2.json': 'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/protostyle2.json',
       '/styles/positron.json':    'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/positron.json',
+      '/styles/basic.json':       'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/basic.json',
     },
   }),
   'top-right'
@@ -145,19 +147,31 @@ function closeAllDropdowns() {
 });
 
 // Click anywhere outside a dropdown or toolbar button closes all panels.
-// Two exceptions:
+// Three exceptions:
 //   1. Clicks inside an already-open panel keep that panel open (e.g. color
 //      pickers, sliders, checkboxes — all live inside the panel).
 //   2. Map-canvas clicks never close the draw panel so the user can place
 //      vertices while the panel stays visible.
+//   3. Map-canvas clicks never close the Overlays panel while its "Text"
+//      submenu is expanded, so the user can click the map to place text
+//      without losing the submenu — it only closes via an explicit action
+//      (another toolbar menu, the submenu header, or the panel's "x").
 document.addEventListener('click', (e) => {
-  const drawPanel = document.getElementById('panel-draw');
-  const inMap     = document.getElementById('map').contains(e.target);
+  const drawPanel     = document.getElementById('panel-draw');
+  const overlaysPanelEl = document.getElementById('panel-overlays');
+  const inMap         = document.getElementById('map').contains(e.target);
 
   // Exception 2 — map click while draw panel is open
   if (inMap && drawPanel.classList.contains('open')) {
     document.querySelectorAll('.panel-dropdown:not(#panel-draw)').forEach(p => p.classList.remove('open'));
     document.querySelectorAll('.tb-btn:not(#btn-draw)').forEach(b => b.classList.remove('active'));
+    return;
+  }
+
+  // Exception 3 — map click while the Overlays panel's Text submenu is open
+  if (inMap && overlaysPanelEl.classList.contains('open') && overlaysPanel.isTextSubmenuOpen()) {
+    document.querySelectorAll('.panel-dropdown:not(#panel-overlays)').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.tb-btn:not(#btn-overlays)').forEach(b => b.classList.remove('active'));
     return;
   }
 
@@ -171,11 +185,38 @@ document.addEventListener('click', (e) => {
 
 // Sync locator label positions on every map move/zoom.
 // (Icon markers use MapLibre's native Marker positioning and need no manual sync.)
-map.on('move', () => locatorPanel.syncPositions());
-map.on('zoom', () => locatorPanel.syncPositions());
+map.on('move', () => { locatorPanel.syncPositions(); overlaysPanel.syncPositions(); });
+map.on('zoom', () => { locatorPanel.syncPositions(); overlaysPanel.syncPositions(); });
 
-// Snap icon markers to their exact position once a zoom animation finishes.
-// During smooth zoom the WebGL canvas and DOM markers are on separate rendering
-// pipelines and can drift by a frame or two; zoomend fires when the map is fully
-// at rest so the correction is applied once and is imperceptible to the user.
-map.on('zoomend', () => iconsPanel.snapPositions());
+// Hide icon markers during zoom so pipeline-mismatch drift is never visible,
+// then reveal them once the animation is fully at rest.
+//
+// The _mapZooming guard prevents a stale rAF (queued by a previous zoomend)
+// from unhiding markers while a new zoom has already started — which would
+// make the drift visible mid-animation.
+//
+// setLngLat is intentionally NOT called in showAll(): MapLibre's own
+// moveend → _update() fires synchronously before the rAF and has already
+// projected every marker to the correct pixel position.
+let _mapZooming = false;
+map.on('zoomstart', () => { _mapZooming = true;  iconsPanel.hideAll();  locatorPanel.hideAll();  overlaysPanel.hideAll(); });
+map.on('zoomend',   () => { _mapZooming = false; requestAnimationFrame(() => { if (!_mapZooming) { iconsPanel.showAll(); locatorPanel.showAll(); overlaysPanel.showAll(); } }); });
+
+// ── Map HUD (coordinates + zoom) ──────────────────────────────────────────
+const hudCoords = document.getElementById('hud-coords');
+const hudZoom   = document.getElementById('hud-zoom');
+
+function hudFmtCoord(val, pos, neg) {
+  return `${Math.abs(val).toFixed(4)}° ${val >= 0 ? pos : neg}`;
+}
+function hudUpdateZoom() {
+  hudZoom.textContent = map.getZoom().toFixed(2);
+}
+
+map.on('mousemove', (e) => {
+  hudCoords.textContent =
+    `${hudFmtCoord(e.lngLat.lat, 'N', 'S')},  ${hudFmtCoord(e.lngLat.lng, 'E', 'W')}`;
+});
+map.on('zoom',    hudUpdateZoom);
+map.on('zoomend', hudUpdateZoom);
+hudUpdateZoom();

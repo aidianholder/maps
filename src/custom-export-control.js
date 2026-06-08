@@ -116,7 +116,8 @@ class MapGenerator extends MapGeneratorBase {
       const webgl         = origGetCanvas();
       const withLocators  = self._compositeLocators(webgl, map);
       const withIcons     = self._compositeIcons(withLocators, map);
-      return self._compositeDrawFeatures(withIcons, map);
+      const withText      = self._compositeText(withIcons, map);
+      return self._compositeDrawFeatures(withText, map);
     };
 
     return map;
@@ -192,7 +193,15 @@ class MapGenerator extends MapGeneratorBase {
 
       // Convert from original-map screen coords → lng/lat → hidden-map screen coords
       const hiddenPt  = hiddenMap.project(lngLat);
-      const cx = hiddenPt.x * scale;
+
+      // The locator-panel applies a horizontal CSS offset for left/right tail positions
+      // (offset: [+18.5, 0] for posLeft, [-18.5, 0] for posRight) so the tail tip lands
+      // visually 18.5 CSS px away from the stored geographic pin.  We must shift cx by the
+      // same amount so _drawLocatorLabel receives the true visual tail-tip position.
+      const posLeft  = el.classList.contains('lm-pos-left');
+      const posRight = el.classList.contains('lm-pos-right');
+      const tailPxOff = posLeft ? 18.5 : posRight ? -18.5 : 0;
+      const cx = (hiddenPt.x + tailPxOff) * scale;
       const cy = hiddenPt.y * scale;
 
       // Read style info from the live element
@@ -217,8 +226,8 @@ class MapGenerator extends MapGeneratorBase {
         isLine:    el.classList.contains('lm-line'),
         tailDown:  el.classList.contains('lm-tail-down'),
         tailUp:    el.classList.contains('lm-tail-up'),
-        posLeft:   el.classList.contains('lm-pos-left'),
-        posRight:  el.classList.contains('lm-pos-right'),
+        posLeft,
+        posRight,
       });
     }
 
@@ -276,6 +285,134 @@ class MapGenerator extends MapGeneratorBase {
     }
 
     return composite;
+  }
+
+  // ── Text overlay compositing ─────────────────────────────────────────────────
+
+  _compositeText(baseCanvas, hiddenMap) {
+    const els = Array.from(
+      document.querySelectorAll('.map-text')
+    ).filter(el => this.map.getContainer().contains(el));
+
+    if (els.length === 0) return baseCanvas;
+
+    const composite = document.createElement('canvas');
+    composite.width  = baseCanvas.width;
+    composite.height = baseCanvas.height;
+    const ctx = composite.getContext('2d');
+    ctx.drawImage(baseCanvas, 0, 0);
+
+    const cssW  = hiddenMap.getContainer().offsetWidth || this.map.getContainer().offsetWidth || (baseCanvas.width / window.devicePixelRatio);
+    const scale = baseCanvas.width / cssW;
+
+    for (const el of els) {
+      const dataLng = el.getAttribute('data-lng');
+      const dataLat = el.getAttribute('data-lat');
+      if (!dataLng || !dataLat) continue;
+
+      const lngLat   = new maplibregl.LngLat(parseFloat(dataLng), parseFloat(dataLat));
+      const hiddenPt = hiddenMap.project(lngLat);
+      // anchor: 'left' → element's left edge sits on the projected point,
+      // vertically centered (mirrors the live `translate(0,-50%)` CSS transform)
+      const anchorX = hiddenPt.x * scale;
+      const anchorY = hiddenPt.y * scale;
+
+      const textEl = el.querySelector('.mt-text');
+      const text   = (textEl?.innerText ?? '').trim();
+      if (!text) continue;
+
+      const fontFamily  = textEl?.style.fontFamily || '"Inter", sans-serif';
+      const fontSize    = (parseFloat(textEl?.style.fontSize) || 18) * scale;
+      const color       = textEl?.style.color || '#1a1a1a';
+      const borderColor = textEl?.style.borderColor || '#1a1a1a';
+      const bgColor     = textEl?.style.backgroundColor || '#ffffff';
+
+      this._drawTextOverlay(ctx, anchorX, anchorY, text, {
+        fontFamily,
+        fontSize,
+        scale,
+        color,
+        bold:       el.classList.contains('mt-bold'),
+        italic:     el.classList.contains('mt-italic'),
+        underline:  el.classList.contains('mt-underline'),
+        border:     el.classList.contains('mt-border'),
+        borderColor,
+        background: el.classList.contains('mt-bg'),
+        bgColor,
+      });
+    }
+
+    return composite;
+  }
+
+  /**
+   * Draws a left-anchored, vertically-centered text overlay onto the canvas.
+   * `anchorX, anchorY` is the geographic pin's projected screen position —
+   * the text's left edge (or its border/background box's left edge, if present)
+   * sits there.
+   */
+  _drawTextOverlay(ctx, anchorX, anchorY, text, opts) {
+    const {
+      fontFamily, fontSize, scale, color, bold, italic, underline,
+      border, borderColor, background, bgColor,
+    } = opts;
+
+    const weight = bold   ? 'bold '   : '';
+    const style  = italic ? 'italic ' : '';
+    const font   = `${style}${weight}${fontSize}px ${fontFamily}`;
+
+    const lines = text.split('\n');
+    const lineH = fontSize * 1.3;
+    const textH = lines.length * lineH;
+
+    ctx.font = font;
+    const maxLineW = Math.max(...lines.map(l => ctx.measureText(l).width));
+
+    const padX = (border || background) ? 8 * scale : 0;
+    const padY = (border || background) ? 5 * scale : 0;
+
+    const boxX = anchorX;
+    const boxY = anchorY - textH / 2 - padY;
+    const boxW = maxLineW + padX * 2;
+    const boxH = textH + padY * 2;
+
+    if (background) {
+      ctx.save();
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.restore();
+    }
+
+    if (border) {
+      ctx.save();
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth   = 2 * scale;
+      ctx.strokeRect(boxX + ctx.lineWidth / 2, boxY + ctx.lineWidth / 2, boxW - ctx.lineWidth, boxH - ctx.lineWidth);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    const textX = boxX + padX;
+    lines.forEach((line, i) => {
+      const ly = boxY + padY + (i + 0.5) * lineH;
+      ctx.fillText(line, textX, ly);
+      if (underline) {
+        const w = ctx.measureText(line).width;
+        const underlineY = ly + fontSize * 0.32;
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = Math.max(1, fontSize * 0.06);
+        ctx.moveTo(textX, underlineY);
+        ctx.lineTo(textX + w, underlineY);
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
   }
 
   _compositeDrawFeatures(baseCanvas, hiddenMap) {
@@ -376,18 +513,22 @@ class MapGenerator extends MapGeneratorBase {
     const boxW = maxLineW + padX * 2;
     const boxH = lines.length * lineH + padY * 2;
 
-    // Box top-left based on anchor type
+    // Box top-left based on anchor type.
+    // anchorX is the visual tail-tip position (already offset-corrected by the caller):
+    //   center  → tail tip at box horizontal centre  → boxX = anchorX - boxW/2
+    //   posLeft → tail tip at box LEFT  edge         → boxX = anchorX
+    //   posRight→ tail tip at box RIGHT edge         → boxX = anchorX - boxW
     let boxX, boxY;
     if (tailDown) {
-      boxX = anchorX - boxW / 2;
       boxY = anchorY - tailH - boxH;
-      if (posLeft)  boxX = anchorX - 18.5 * scale;
-      if (posRight) boxX = anchorX - boxW + 18.5 * scale;
+      if      (posLeft)  boxX = anchorX;
+      else if (posRight) boxX = anchorX - boxW;
+      else               boxX = anchorX - boxW / 2;
     } else if (tailUp) {
-      boxX = anchorX - boxW / 2;
       boxY = anchorY + tailH;
-      if (posLeft)  boxX = anchorX - 18.5 * scale;
-      if (posRight) boxX = anchorX - boxW + 18.5 * scale;
+      if      (posLeft)  boxX = anchorX;
+      else if (posRight) boxX = anchorX - boxW;
+      else               boxX = anchorX - boxW / 2;
     } else {
       boxX = anchorX - boxW / 2;
       boxY = anchorY - boxH / 2;
@@ -429,9 +570,8 @@ class MapGenerator extends MapGeneratorBase {
     if (isLine) {
       const shaftH    = 22 * scale;
       const shaftW    = 1.5 * scale;
-      const shaftX    = posLeft  ? boxX + 18.5 * scale - shaftW / 2
-                      : posRight ? boxX + boxW - 18.5 * scale - shaftW / 2
-                      :            anchorX - shaftW / 2;
+      // anchorX is already the visual tail-tip x — shaft is always centred on it.
+      const shaftX    = anchorX - shaftW / 2;
       ctx.fillStyle = '#333333';
       if (tailDown) ctx.fillRect(shaftX, boxY + boxH, shaftW, shaftH);
       else if (tailUp) ctx.fillRect(shaftX, boxY - shaftH, shaftW, shaftH);
@@ -455,9 +595,9 @@ class MapGenerator extends MapGeneratorBase {
 
     // ── Tail ───────────────────────────────────────────────────────────────
     if (tailDown || tailUp) {
-      const tailBaseX = posLeft  ? boxX + 18.5 * scale
-                      : posRight ? boxX + boxW - 18.5 * scale
-                      :            anchorX;
+      // anchorX is the corrected visual tail-tip x; the CSS triangle centre always
+      // lands at anchorX regardless of posLeft/posRight, so tailBaseX = anchorX.
+      const tailBaseX = anchorX;
       ctx.fillStyle = bgColor;
       ctx.beginPath();
       if (tailDown) {
@@ -952,6 +1092,27 @@ export class CustomExportControl {
     this._dpiRow = this._row('DPI', this._buildDPISelect());
     table.appendChild(this._dpiRow);
 
+    // HTML-export-only options — checkboxes, unchecked by default, only shown
+    // when Format is set to HTML.
+    const { row: zoomCtrlRow, checkbox: zoomCtrlCheckbox } =
+      this._checkboxRow('Zoom control', 'mapbox-gl-export-zoom-control');
+    const { row: staticRow, checkbox: staticCheckbox } =
+      this._checkboxRow('Make Map Static', 'mapbox-gl-export-static');
+    const { row: scaleBarRow, checkbox: scaleBarCheckbox } =
+      this._checkboxRow('Scale bar', 'mapbox-gl-export-scale-bar');
+
+    this._zoomControlCheckbox = zoomCtrlCheckbox;
+    this._staticCheckbox      = staticCheckbox;
+    this._scaleBarCheckbox    = scaleBarCheckbox;
+
+    this._htmlOptionRows = [zoomCtrlRow, staticRow, scaleBarRow];
+    const isHtml = this._formatSelect?.value === 'html';
+    this._htmlOptionRows.forEach(row => { row.style.display = isHtml ? '' : 'none'; });
+
+    table.appendChild(zoomCtrlRow);
+    table.appendChild(staticRow);
+    table.appendChild(scaleBarRow);
+
     const btnRow  = document.createElement('tr');
     const btnCell = document.createElement('td');
     btnCell.colSpan = 2;
@@ -1036,9 +1197,30 @@ export class CustomExportControl {
     const formats = { ...Object.fromEntries(Object.entries(Format)), 'HTML': 'html' };
     const sel = this._select('mapbox-gl-export-format-type', formats, this._options.Format);
     sel.addEventListener('change', () => {
-      if (this._dpiRow) this._dpiRow.style.display = sel.value === 'html' ? 'none' : '';
+      const isHtml = sel.value === 'html';
+      if (this._dpiRow) this._dpiRow.style.display = isHtml ? 'none' : '';
+      if (this._htmlOptionRows) {
+        this._htmlOptionRows.forEach(row => { row.style.display = isHtml ? '' : 'none'; });
+      }
     });
+    this._formatSelect = sel;
     return sel;
+  }
+
+  _checkboxRow(label, id, checked = false) {
+    const tr = document.createElement('tr');
+    const th = document.createElement('td');
+    th.style.cssText = 'font-size:12px; padding:3px 8px 3px 0; white-space:nowrap; color:#444;';
+    th.textContent = label;
+    const td = document.createElement('td');
+    td.style.width = '100%';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = id;
+    checkbox.checked = checked;
+    td.appendChild(checkbox);
+    tr.append(th, td);
+    return { row: tr, checkbox };
   }
 
   _buildDPISelect() {
@@ -1053,7 +1235,15 @@ export class CustomExportControl {
   _generate() {
     this._panel.style.display = 'none';
     const format = this._panel.querySelector('#mapbox-gl-export-format-type').value;
-    if (format === 'html') { this._generateHtml(); return; }
+    if (format === 'html') {
+      const htmlOptions = {
+        zoomControl: this._panel.querySelector('#mapbox-gl-export-zoom-control')?.checked ?? false,
+        staticMap:   this._panel.querySelector('#mapbox-gl-export-static')?.checked ?? false,
+        scaleBar:    this._panel.querySelector('#mapbox-gl-export-scale-bar')?.checked ?? false,
+      };
+      this._generateHtml(htmlOptions);
+      return;
+    }
     const dpi  = Number(this._panel.querySelector('#mapbox-gl-export-dpi-type').value);
     const size = this._getCurrentExportSize();
     new MapGenerator(this._map, size, dpi, format, Unit.mm, this._options.Filename).generate();
@@ -1061,13 +1251,23 @@ export class CustomExportControl {
 
   // ── HTML embed export ──────────────────────────────────────────────────────
 
-  _generateHtml() {
+  _generateHtml(htmlOptions = {}) {
+    const { zoomControl = false, staticMap = false, scaleBar = false } = htmlOptions;
     const center    = this._map.getCenter();
     const zoom      = this._map.getZoom();
     const styleObj  = this._map.getStyle();
     // Strip fence source/layer — they're invisible collision markers, not map content
     if (styleObj.sources) delete styleObj.sources[FENCE_SOURCE];
     if (styleObj.layers)  styleObj.layers = styleObj.layers.filter(l => l.id !== FENCE_LAYER);
+
+    // Strip terra-draw sources/layers — they are re-added dynamically in the map.on('load')
+    // block with the actual feature data.  Leaving them in the style causes MapLibre to throw
+    // "Source with ID 'td-*' already exists" when the load handler runs, which aborts the
+    // async callback before the locator popup code executes.
+    const TD_SOURCE_IDS = ['td-polygon', 'td-linestring', 'td-point'];
+    const TD_LAYER_IDS  = new Set(['td-polygon', 'td-polygon-outline', 'td-linestring', 'td-point', 'td-point-marker']);
+    TD_SOURCE_IDS.forEach(id => { if (styleObj.sources) delete styleObj.sources[id]; });
+    if (styleObj.layers) styleObj.layers = styleObj.layers.filter(l => !TD_LAYER_IDS.has(l.id));
 
     // Map dimensions from the current export overlay
     const [mmW, mmH] = this._getCurrentExportSize();
@@ -1077,12 +1277,14 @@ export class CustomExportControl {
 
     const locatorFeatures = this._collectLocatorFeatures();
     const { iconFeatures, iconDataMap } = this._collectIconData();
+    const textFeatures = this._collectTextFeatures();
     const font = this._detectStyleFont();
     const drawFeatures = getDrawPanel(this._map)?.getSnapshot() ?? [];
 
     const html = this._buildHtml({
       center, zoom, styleObj, maxW, mapH,
-      locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures,
+      locatorFeatures, iconFeatures, iconDataMap, textFeatures, font, drawFeatures,
+      zoomControl, staticMap, scaleBar,
     });
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -1130,6 +1332,11 @@ export class CustomExportControl {
         const haloColor  = isDark ? '#1a1a1a' : '#ffffff';
         const haloWidth  = (isDark || el.classList.contains('lm-white')) ? 4 : 2;
 
+        // The locator-panel shifts the element ±18.5 CSS px from the stored pin so the
+        // CSS tail tip aligns with that pin visually.  The HTML popup needs the same
+        // pixel offset so it lands in the same position as the live locator.
+        const offsetX = posLeft ? 18.5 : posRight ? -18.5 : 0;
+
         return [{
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [
@@ -1140,6 +1347,7 @@ export class CustomExportControl {
             text,
             fontSize:   parseFloat(bodyEl?.style.fontSize) || 14,
             anchor,
+            offsetX,
             textColor,
             haloColor,
             haloWidth,
@@ -1163,7 +1371,7 @@ export class CustomExportControl {
 
     const iconFeatures = iconEls
       .filter(el => el.dataset.icon)
-      .map(el => {
+      .map((el, idx) => {
         const sizePx   = parseInt(el.dataset.size) || 15;
         const iconSize = Math.round((sizePx / 15) * 10) / 10;
         return {
@@ -1173,6 +1381,7 @@ export class CustomExportControl {
             parseFloat(el.getAttribute('data-lat')),
           ]},
           properties: {
+            _iwIdx: idx,
             icon: el.dataset.icon + '-icon',
             iconSize,
             iwTitle:   el.dataset.iwTitle   || '',
@@ -1188,20 +1397,55 @@ export class CustomExportControl {
     return { iconFeatures, iconDataMap };
   }
 
-  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, font, drawFeatures = [] }) {
+  _collectTextFeatures() {
+    return Array.from(document.querySelectorAll('.map-text'))
+      .filter(el => this._map.getContainer().contains(el))
+      .flatMap(el => {
+        const textEl = el.querySelector('.mt-text');
+        const text   = (textEl?.innerText ?? '').trim();
+        if (!text) return [];
+
+        return [{
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [
+            parseFloat(el.getAttribute('data-lng')),
+            parseFloat(el.getAttribute('data-lat')),
+          ]},
+          properties: {
+            text,
+            font:        el.dataset.font  || 'Inter',
+            size:        parseFloat(el.dataset.size) || 18,
+            color:       el.dataset.color || '#1a1a1a',
+            bold:        el.classList.contains('mt-bold'),
+            italic:      el.classList.contains('mt-italic'),
+            underline:   el.classList.contains('mt-underline'),
+            border:      el.classList.contains('mt-border'),
+            borderColor: el.dataset.borderColor || '#1a1a1a',
+            background:  el.classList.contains('mt-bg'),
+            bgColor:     el.dataset.bgColor || '#ffffff',
+          },
+        }];
+      });
+  }
+
+  _buildHtml({ center, zoom, styleObj, maxW, mapH, locatorFeatures, iconFeatures, iconDataMap, textFeatures = [], font, drawFeatures = [], zoomControl = false, staticMap = false, scaleBar = false }) {
     const hasLocators = locatorFeatures.length > 0;
     const hasIcons    = iconFeatures.length > 0;
+    const hasText     = textFeatures.length > 0;
 
-    // Detect all fonts used across locators and infowindows
+    // Detect all fonts used across locators, infowindows, and text overlays
     const usedFonts = new Set();
     locatorFeatures.forEach(f => {
-      // Locator features don't currently store the font value in properties, 
-      // but they are already loaded in the main app. 
+      // Locator features don't currently store the font value in properties,
+      // but they are already loaded in the main app.
       // However, for HTML export, we should probably ensure they are linked.
       // For now, let's focus on Infowindow fonts which we just added.
     });
     iconFeatures.forEach(f => {
       if (f.properties.iwFont) usedFonts.add(f.properties.iwFont);
+    });
+    textFeatures.forEach(f => {
+      if (f.properties.font) usedFonts.add(f.properties.font);
     });
 
     const fontLinks = Array.from(usedFonts).map(f => {
@@ -1277,18 +1521,12 @@ ${iconLayersJs}
 
         const _iwPanel = document.createElement('div');
         _iwPanel.id = 'iw-panel';
-        _iwPanel.style.cssText = 'display:none;position:absolute;bottom:0;left:0;right:0;max-height:${Math.round(mapH / 3)}px;background:#fff;overflow-y:auto;padding:16px 20px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);box-sizing:border-box;';
-        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-weight:700;margin-bottom:0;"></div><div id="iw-p-subhead" style="color:#555;margin-bottom:0;white-space:pre-wrap;"></div><div id="iw-p-text" style="font-size:.9em;white-space:pre-wrap;margin-top:10px;"></div>';
+        _iwPanel.style.cssText = 'position:absolute;bottom:0;left:0;right:0;max-height:${Math.round(mapH / 3)}px;background:#fff;overflow-y:auto;padding:16px 20px;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);box-sizing:border-box;width:fit-content;min-width:40%;max-width:80%;margin:0 auto 1em;transform:translateY(120%);transition:transform .3s ease;';
+        _iwPanel.innerHTML = '<div id="iw-p-title" style="font-weight:700;margin-bottom:0;"></div><div id="iw-p-subhead" style="color:#555;margin-bottom:0;white-space:pre-wrap;"></div><div id="iw-p-text" style="font-size:.9em;margin-top:10px;line-height:1.5;"></div>';
         map.getContainer().appendChild(_iwPanel);
 
-        let _iwConsumed = false;
-        map.on('click', () => {
-            if (!_iwConsumed) {
-                _iwPanel.style.display = 'none';
-                map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
-            }
-            _iwConsumed = false;
-        });
+        const _iwShow = () => { _iwPanel.style.transform = 'translateY(0)'; };
+        const _iwHide = () => { _iwPanel.style.transform = 'translateY(120%)'; };
 
         // Add highlight layer
         map.addLayer({
@@ -1304,51 +1542,98 @@ ${iconLayersJs}
             }
         }, '${uniqueIcons[0]}');
 
+        let _selectedIconIdx = null;
+
+        const _deselectIcon = () => {
+            _selectedIconIdx = null;
+            _iwHide();
+            map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
+        };
+
         map.on('click', (e) => {
             const features = map.queryRenderedFeatures(e.point, { layers: ${JSON.stringify(uniqueIcons)} });
-            if (features.length > 0) {
-                _iwConsumed = true;
-                const f = features[0];
-                const p = f.properties;
-                if (!p.iwTitle && !p.iwSubhead && !p.iwText) {
-                    _iwPanel.style.display = 'none';
-                    map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
-                    return;
-                }
-                
-                // Highlight
-                // Since MapLibre features don't have stable IDs unless specified in GeoJSON,
-                // and we are using unique icon layers, we filter the highlight layer by icon property
-                map.setFilter('map-icons-highlight', ['==', ['get', 'icon'], p.icon]);
-
-                const titleEl = document.getElementById('iw-p-title');
-                const subheadEl = document.getElementById('iw-p-subhead');
-                const textEl = document.getElementById('iw-p-text');
-
-                titleEl.textContent   = p.iwTitle   || '';
-                subheadEl.textContent = p.iwSubhead || '';
-                textEl.textContent    = p.iwText    || '';
-
-                const displayFont = (p.iwFont || 'Inter').replace(/\\+/g, ' ');
-                _iwPanel.style.fontFamily = '"' + displayFont + '", sans-serif';
-                _iwPanel.style.textAlign  = p.iwAlign || 'left';
-                
-                titleEl.style.fontSize = (p.iwSize * 1.2) + 'px';
-                subheadEl.style.fontSize = (p.iwSize * 0.95) + 'px';
-                textEl.style.fontSize = (p.iwSize * 0.9) + 'px';
-
-                _iwPanel.style.display = 'block';
+            if (features.length === 0) {
+                _deselectIcon();
+                return;
             }
+
+            const f = features[0];
+            const p = f.properties;
+
+            // Clicking the already-selected icon toggles it back off
+            if (_selectedIconIdx === p._iwIdx) {
+                _deselectIcon();
+                return;
+            }
+            _selectedIconIdx = p._iwIdx;
+
+            if (!p.iwTitle && !p.iwSubhead && !p.iwText) {
+                _iwHide();
+                map.setFilter('map-icons-highlight', ['==', ['id'], 'none']);
+                return;
+            }
+
+            // Highlight
+            // Since MapLibre features don't have stable IDs unless specified in GeoJSON,
+            // and we are using unique icon layers, we filter the highlight layer by icon property
+            map.setFilter('map-icons-highlight', ['==', ['get', 'icon'], p.icon]);
+
+            const titleEl = document.getElementById('iw-p-title');
+            const subheadEl = document.getElementById('iw-p-subhead');
+            const textEl = document.getElementById('iw-p-text');
+
+            titleEl.textContent   = p.iwTitle   || '';
+            subheadEl.textContent = p.iwSubhead || '';
+            textEl.innerHTML      = p.iwText    || '';
+
+            const displayFont = (p.iwFont || 'Inter').replace(/\\+/g, ' ');
+            _iwPanel.style.fontFamily = '"' + displayFont + '", sans-serif';
+            _iwPanel.style.textAlign  = p.iwAlign || 'left';
+
+            titleEl.style.fontSize = (p.iwSize * 1.2) + 'px';
+            subheadEl.style.fontSize = (p.iwSize * 0.95) + 'px';
+            textEl.style.fontSize = (p.iwSize * 0.9) + 'px';
+
+            _iwShow();
         });` : '';
 
     const locatorJs = hasLocators ? locatorFeatures.map(f => {
       const [lng, lat] = f.geometry.coordinates;
       const html = f.properties.text.replace(/\n/g, '<br>');
       const darkClass = f.properties.isDark ? ' lm-popup-dark' : '';
-      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}', className: '${darkClass.trim()}' })
+      // offsetX mirrors the CSS horizontal shift the locator-panel applies so the
+      // popup tip lands at the same screen position as the live locator's tail tip.
+      const offsetX = f.properties.offsetX || 0;
+      return `        new maplibregl.Popup({ closeOnClick: false, closeButton: false, anchor: '${f.properties.anchor}', offset: [${offsetX}, 0], className: '${darkClass.trim()}' })
             .setLngLat([${lng}, ${lat}])
             .setHTML(${JSON.stringify(html)})
             .addTo(map);`;
+    }).join('\n') : '';
+
+    // Text overlays — recreated as left-anchored maplibregl.Markers carrying a
+    // styled HTML <div>, mirroring the geo-anchored positioning used live
+    // (anchor: 'left' pins the element's left edge to the stored coordinate).
+    const textJs = hasText ? textFeatures.map(f => {
+      const [lng, lat] = f.geometry.coordinates;
+      const p = f.properties;
+      const displayFont = (p.font || 'Inter').replace(/\+/g, ' ');
+      const html = p.text.replace(/\n/g, '<br>');
+      const weight      = p.bold      ? 'font-weight:700;'           : '';
+      const styleIt     = p.italic    ? 'font-style:italic;'         : '';
+      const decoration  = p.underline ? 'text-decoration:underline;' : '';
+      const borderStyle = p.border     ? `border:2px solid ${p.borderColor};border-radius:3px;` : '';
+      const bgStyle     = p.background ? `background-color:${p.bgColor};` : '';
+      const padStyle    = (p.border || p.background) ? 'padding:5px 8px;display:inline-block;' : '';
+      const elStyle = `font-family:"${displayFont}", sans-serif;font-size:${p.size}px;color:${p.color};` +
+        `white-space:pre-wrap;line-height:1.3;${weight}${styleIt}${decoration}${borderStyle}${bgStyle}${padStyle}`;
+      return `        (() => {
+            const el = document.createElement('div');
+            el.style.cssText = ${JSON.stringify(elStyle)};
+            el.innerHTML = ${JSON.stringify(html)};
+            new maplibregl.Marker({ element: el, anchor: 'left' })
+                .setLngLat([${lng}, ${lat}])
+                .addTo(map);
+        })();`;
     }).join('\n') : '';
 
     return `<!DOCTYPE html>
@@ -1374,6 +1659,8 @@ ${iconLayersJs}
         .lm-popup-dark.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #000; }
         .lm-popup-dark.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #000; }
         .lm-popup-dark.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #000; }
+        #iw-p-text a { color: inherit; text-decoration: underline; }
+        #iw-p-text ul, #iw-p-text ol { padding-left: 1.4em; margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -1387,10 +1674,12 @@ ${iconLayersJs}
         style: ${JSON.stringify(styleObj)},
         center: [${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}],
         zoom: ${zoom.toFixed(3)},
+        attributionControl: false,${staticMap ? '\n        interactive: false,' : ''}
     });
-
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+${zoomControl ? "    map.addControl(new maplibregl.NavigationControl());\n" : ''}${scaleBar ? "    map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }));\n" : ''}
     map.on('load', async () => {
-${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}
+${hasIcons ? iconLoadLines + '\n' : ''}${iconSourceJs}${tdJs}${locatorJs}${textJs}
     });
 <\/script>
 </body>

@@ -23,6 +23,40 @@ html, body {
   inset: 0;
 }
 
+/* ── Map HUD (coordinates + zoom, top center) ────────────────────────────── */
+
+#map-hud {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+  padding: 5px 14px;
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: #1f2937;
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.hud-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-right: 5px;
+}
+
+@media print {
+  #map-hud { display: none !important; }
+}
+
 /* ── Draw button (left side, below zoom controls) ────────────────────────── */
 
 #draw-btn-wrapper {
@@ -172,6 +206,108 @@ details[open] > .ovr-submenu-header::before {
   background: #dbeafe;
   color: #1d4ed8;
   font-weight: 600;
+}
+
+/* ── Text overlay submenu controls ─────────────────────────────────────────── */
+
+.ovr-text-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 14px 10px;
+  margin-left: 22px;
+  border-left: 1px solid #e5e7eb;
+}
+
+.ovr-text-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ovr-text-row label {
+  width: fit-content;
+  flex-shrink: 0;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.ovr-text-select,
+.ovr-text-size-input {
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.ovr-text-select { flex: 1; }
+.ovr-text-size-input { width: 56px; }
+
+.ovr-text-style-wrap {
+  display: flex;
+  gap: 2px;
+}
+
+.ovr-text-style-btn {
+  padding: 2px 9px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.ovr-text-style-btn:hover { background: #e5e7eb; }
+
+.ovr-text-style-active {
+  background: #3b82f6 !important;
+  color: #fff !important;
+  border-color: #2563eb !important;
+}
+
+.ovr-text-color {
+  width: 36px;
+  height: 26px;
+  padding: 1px 2px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.ovr-text-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #4b5563;
+  cursor: pointer;
+  width: auto;
+}
+
+.ovr-text-checkbox { cursor: pointer; }
+
+.ovr-text-place-btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  transition: all 0.1s;
+}
+
+.ovr-text-place-btn:hover { background: #e5e7eb; }
+
+.ovr-text-place-active {
+  background: #3b82f6 !important;
+  color: #fff !important;
+  border-color: #2563eb !important;
 }
 
 /* ── Draw panel ───────────────────────────────────────────────────────────── */
@@ -879,6 +1015,75 @@ details[open] > .section-header::before {
 }
 .lm-thumb .lm-del { display: none !important; }
 
+/* ── Text overlays (placed via Overlays panel → Text) ───────────────────────── */
+/* Geographically-anchored at the LEFT edge — anchor: 'left' (translate(0,-50%)) */
+
+.map-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
+.mt-text {
+  outline: none;
+  min-width: 24px;
+  display: inline-block;
+  cursor: text;
+  pointer-events: auto;
+  line-height: 1.3;
+  user-select: text;
+}
+
+.mt-text:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.map-text.mt-bold      .mt-text { font-weight: 700; }
+.map-text.mt-italic    .mt-text { font-style: italic; }
+.map-text.mt-underline .mt-text { text-decoration: underline; }
+
+.map-text.mt-border .mt-text,
+.map-text.mt-bg .mt-text {
+  display: inline-block;
+  padding: 5px 8px;
+}
+
+.map-text.mt-border .mt-text {
+  border: 2px solid;
+  border-radius: 3px;
+  /* border-color set inline via element style.borderColor */
+}
+
+.map-text.mt-dragging,
+.map-text.mt-dragging .mt-text { cursor: grabbing !important; user-select: none; }
+
+/* Delete button — shows on hover/selected */
+.mt-del {
+  display: none;
+  background: none;
+  border: none;
+  color: rgba(0,0,0,0.4);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  line-height: 1;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+.map-text.mt-selected .mt-del,
+.map-text:hover       .mt-del { display: flex; }
+.mt-del:hover { color: #fc8181 !important; }
+
+/* Selected outline */
+.map-text.mt-selected .mt-text {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* ── Icons panel ──────────────────────────────────────────────────────────── */
 
 #icons-panel {
@@ -988,7 +1193,7 @@ details[open] > .section-header::before {
 
 .map-icon {
   cursor: grab;
-  position: relative;
+  position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1157,6 +1362,110 @@ details[open] > .section-header::before {
 .iw-btn-enter:hover { background: #2563eb !important; }
 
 .iw-btn-clear:hover { background: #f3f4f6; }
+
+/* ── Rich-text toolbar ─────────────────────────────────────────────────────── */
+
+.iw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  padding: 2px 3px;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 4px 4px 0 0;
+  border-bottom: none;
+}
+
+.iw-tool-btn {
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #374151;
+  min-width: 22px;
+  text-align: center;
+}
+
+.iw-tool-btn:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.iw-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: #d1d5db;
+  margin: 0 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.iw-content-editor {
+  flex: 1;
+  font-size: 12px;
+  font-family: inherit;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 0 0 4px 4px;
+  min-height: 56px;
+  outline: none;
+  overflow-y: auto;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.iw-content-editor:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,.15);
+}
+
+.iw-content-editor ul,
+.iw-content-editor ol {
+  padding-left: 1.4em;
+  margin: 2px 0;
+}
+
+/* ── Link dialog ───────────────────────────────────────────────────────────── */
+
+.iw-link-dialog {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.iw-link-input {
+  flex: 1;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.iw-link-apply,
+.iw-link-cancel {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  white-space: nowrap;
+}
+
+.iw-link-apply {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.iw-link-apply:hover { background: #2563eb; }
+.iw-link-cancel:hover { background: #f3f4f6; }
 
 /* Highlight selected icon on the main map */
 .map-icon-selected {

@@ -367,6 +367,55 @@ const AWS_GROUPS = [
   { displayName: 'labels: country',      layers: ['admin_label_country'] },
 ];
 
+// ─── Basic (Klokantech Basic) style ─────────────────────────────────────────
+
+const BASIC_GROUPS = [
+  // Land cover / land use
+  { displayName: 'agriculture',           layers: ['landuse'] },
+  { displayName: 'landuse: residential',  layers: ['landuse-residential'] },
+  { displayName: 'national parks',        layers: ['landuse_overlay_national_park'] },
+  { displayName: 'woodland',              layers: ['landcover_wood'] },
+  { displayName: 'grassland',             layers: ['landcover_grass'] },
+  { displayName: 'sand/beach',            layers: ['landcover_sand'] },
+  { displayName: 'ice/glaciers',          layers: ['landcover-ice-shelf', 'landcover-glacier'] },
+
+  // Water
+  { displayName: 'water',                 layers: ['water'] },
+  { displayName: 'waterways',
+    layers: ['waterway-tunnel', 'waterway', 'waterway-bridge-case', 'waterway-bridge'] },
+
+  // Built environment
+  { displayName: 'building footprints',   layers: ['building'] },
+  { displayName: 'house numbers',         layers: ['housenumber'] },
+  { displayName: 'piers',                 layers: ['road_area_pier', 'road_pier'] },
+  { displayName: 'bridges',               layers: ['road_bridge_area'] },
+  { displayName: 'airports',
+    layers: ['aeroway-area', 'aeroway-taxiway', 'aeroway-runway'] },
+
+  // Roads & transit
+  { displayName: 'one way arrows',        layers: ['road_oneway_opposite'] },
+  { displayName: 'highways',              layers: ['road_major_motorway'] },
+  { displayName: 'major roads',
+    layers: ['road_trunk_primary', 'road_secondary_tertiary', 'tunnel_major', 'bridge_major case', 'bridge_major'] },
+  { displayName: 'minor roads',
+    layers: ['road_minor', 'tunnel_minor', 'bridge_minor case', 'bridge_minor'] },
+  { displayName: 'paths/trails',          layers: ['road_path'] },
+  { displayName: 'rail',                  layers: ['railway'] },
+  { displayName: 'transit rail',          layers: ['railway-transit', 'tunnel_railway_transit'] },
+
+  // Boundaries
+  { displayName: 'boundaries: country',     layers: ['admin_country'] },
+  { displayName: 'boundaries: sub-national', layers: ['admin_sub'] },
+
+  // Places & labels
+  { displayName: 'points of interest',    layers: ['poi_label'] },
+  { displayName: 'airport labels',        layers: ['airport-label'] },
+  { displayName: 'labels: major roads',   layers: ['road_major_label'] },
+  { displayName: 'neighborhoods',         layers: ['place_label_other'] },
+  { displayName: 'cities',                layers: ['place_label_city'] },
+  { displayName: 'labels: country',       layers: ['country_label-other', 'country_label'] },
+];
+
 // ─── Exported config array ───────────────────────────────────────────────────
 
 const PROTO_SECTIONS = [
@@ -458,6 +507,26 @@ const AWS_SECTIONS = [
   ]},
 ];
 
+const BASIC_SECTIONS = [
+  { name: 'Natural & Land', entries: [
+    'agriculture', 'landuse: residential', 'national parks',
+    'woodland', 'grassland', 'sand/beach', 'ice/glaciers',
+    'water', 'waterways', 'building footprints', 'house numbers',
+    'piers', 'bridges', 'airports',
+  ]},
+  { name: 'Roads & Transit', entries: [
+    'highways', 'major roads', 'minor roads', 'paths/trails',
+    'rail', 'transit rail', 'one way arrows',
+  ]},
+  { name: 'Boundaries', entries: [
+    'boundaries: country', 'boundaries: sub-national',
+  ]},
+  { name: 'Places & Labels', entries: [
+    'points of interest', 'airport labels', 'neighborhoods', 'cities',
+    'labels: country', 'labels: major roads',
+  ]},
+];
+
 export const STYLE_CONFIGS = [
   {
     test: style => 'protomaps' in (style.sources ?? {}),
@@ -492,6 +561,15 @@ export const STYLE_CONFIGS = [
       'admin_label_continent', 'building_label_number', 'road_label_service',
       'water_pier-line', 'water_pier-polygon',
     ],
+    hiddenPrefixes: [],
+  },
+  {
+    // Klokantech Basic — identified by its name field; must be tested before
+    // the generic openmaptiles catch-all (Positron) below.
+    test: style => style.name === 'Klokantech Basic',
+    groups: BASIC_GROUPS,
+    sections: BASIC_SECTIONS,
+    hidden: ['background'],
     hiddenPrefixes: [],
   },
   {
