@@ -27,6 +27,7 @@ const STYLES = [
   { title: 'Proto',     uri: '/styles/protostyle2.json' },
   { title: 'Positron',  uri: '/styles/positron.json' },
   { title: 'Bright',    uri: '/styles/osmbright.json' },
+  { title: 'basic',     uri: '/styles/basic.json' },
 ];
 
 const DEFAULT_STYLE = 'Newsprint';
@@ -98,6 +99,7 @@ map.addControl(
       '/styles/osmbright.json':   'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/osmbright.json',
       '/styles/protostyle2.json': 'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/protostyle2.json',
       '/styles/positron.json':    'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/positron.json',
+      '/styles/basic.json':       'https://vectortiles.nyc3.cdn.digitaloceanspaces.com/basic.json',
     },
   }),
   'top-right'
