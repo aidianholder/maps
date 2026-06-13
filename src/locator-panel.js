@@ -28,15 +28,19 @@ export const FONTS = [
 export function loadFont(value) {
   const id = `gf-${value.replace(/[^a-zA-Z0-9]/g, '-')}`;
   if (document.getElementById(id)) return;
+
+  if (value.startsWith('helveticaltstd')) {
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `@font-face { font-family: "${value}"; src: url("https://vectortiles.nyc3.cdn.digitaloceanspaces.com/font/${value}.woff2") format("woff2"); }`;
+    document.head.appendChild(style);
+    return;
+  }
+
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
-
-  if (value.startsWith('helveticaltstd')) {
-    link.href = `https://vectortiles.nyc3.cdn.digitaloceanspaces.com/font/${value}.woff2`;
-  } else {
-    link.href = `https://fonts.googleapis.com/css2?family=${value}:wght@400;700&display=swap`;
-  }
+  link.href = `https://fonts.googleapis.com/css2?family=${value}:wght@400;700&display=swap`;
   document.head.appendChild(link);
 }
 
