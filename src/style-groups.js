@@ -20,7 +20,7 @@ const PROTO_GROUPS = [
   { displayName: 'boundaries: country', layers: ['boundaries_country'] },
   { displayName: 'labels: major roads', layers: ['roads_labels_major'] },
   { displayName: 'labels: minor roads', layers: ['roads_labels_minor'] },
-  { displayName: 'labels: states',      layers: ['places_region'] },
+  { displayName: 'labels: counties_by_state',      layers: ['places_region'] },
   { displayName: 'labels: country',     layers: ['places_country'] },
   { displayName: 'labels: water',       layers: ['water_waterway_label', 'water_label_lakes'] },
   { displayName: 'one way arrows',      layers: ['roads_oneway'] },
@@ -100,7 +100,7 @@ const BRIGHT_GROUPS = [
   { displayName: 'villages',            layers: ['label_village'] },
   { displayName: 'towns',               layers: ['label_town'] },
   { displayName: 'cities',              layers: ['label_city', 'label_city_capital'] },
-  { displayName: 'labels: states',      layers: ['label_state'] },
+  { displayName: 'labels: counties_by_state',      layers: ['label_state'] },
   { displayName: 'labels: country',
     layers: ['label_country_1', 'label_country_2', 'label_country_3'] },
 
@@ -193,7 +193,7 @@ const POSITRON_GROUPS = [
   { displayName: 'villages',            layers: ['label_village'] },
   { displayName: 'towns',               layers: ['label_town'] },
   { displayName: 'cities',              layers: ['label_city', 'label_city_capital'] },
-  { displayName: 'labels: states',      layers: ['label_state'] },
+  { displayName: 'labels: counties_by_state',      layers: ['label_state'] },
   { displayName: 'labels: country',
     layers: ['label_country_1', 'label_country_2', 'label_country_3'] },
 
@@ -238,7 +238,7 @@ const NEWSPRINT_GROUPS = [
   { displayName: 'villages',            layers: ['label_village'] },
   { displayName: 'towns',               layers: ['label_town'] },
   { displayName: 'cities',              layers: ['label_city', 'label_city_capital'] },
-  { displayName: 'labels: states',      layers: ['label_state'] },
+  { displayName: 'labels: counties_by_state',      layers: ['label_state'] },
   { displayName: 'labels: country',
     layers: ['label_country_1', 'label_country_2', 'label_country_3'] },
 
@@ -363,7 +363,7 @@ const AWS_GROUPS = [
   { displayName: 'villages',             layers: ['place_label_locality_settlement_small'] },
   { displayName: 'towns',                layers: ['place_label_locality_settlement'] },
   { displayName: 'cities',               layers: ['place_label_locality_city'] },
-  { displayName: 'labels: states',       layers: ['admin_label_region'] },
+  { displayName: 'labels: counties_by_state',       layers: ['admin_label_region'] },
   { displayName: 'labels: country',      layers: ['admin_label_country'] },
 ];
 
@@ -429,7 +429,7 @@ const PROTO_SECTIONS = [
   ]},
   { name: 'Places & Labels', entries: [
     'pois', 'neighborhoods', 'cities', 'towns', 'villages',
-    'labels: states', 'labels: country',
+    'labels: counties_by_state', 'labels: country',
     'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
   ]},
 ];
@@ -448,7 +448,7 @@ const BRIGHT_SECTIONS = [
   ]},
   { name: 'Places & Labels', entries: [
     'points of interest', 'airport labels', 'neighborhoods', 'cities', 'towns', 'villages',
-    'labels: states', 'labels: country',
+    'labels: counties_by_state', 'labels: country',
     'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
   ]},
 ];
@@ -465,7 +465,7 @@ const POSITRON_SECTIONS = [
   ]},
   { name: 'Places & Labels', entries: [
     'airport labels', 'neighborhoods', 'cities', 'towns', 'villages',
-    'labels: states', 'labels: country',
+    'labels: counties_by_state', 'labels: country',
     'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
   ]},
 ];
@@ -482,7 +482,7 @@ const NEWSPRINT_SECTIONS = [
   ]},
   { name: 'Places & Labels', entries: [
     'airport labels', 'neighborhoods', 'park labels', 'cities', 'towns', 'villages',
-    'labels: states', 'labels: country',
+    'labels: counties_by_state', 'labels: country',
     'labels: water', 'labels: minor roads', 'labels: major roads', 'highway shields',
   ]},
 ];
@@ -502,7 +502,7 @@ const AWS_SECTIONS = [
   { name: 'Places & Labels', entries: [
     'points of interest', 'labels: parks & areas', 'airport labels',
     'cities', 'towns', 'villages',
-    'labels: states', 'labels: country',
+    'labels: counties_by_state', 'labels: country',
     'labels: water', 'labels: roads', 'highway shields',
   ]},
 ];

@@ -310,6 +310,48 @@ details[open] > .ovr-submenu-header::before {
   border-color: #2563eb !important;
 }
 
+/* ── Boundaries: per-state counties side panel ───────────────────────────── */
+
+.ovr-states-panel {
+  display: none;
+  position: fixed;
+  width: 140px;
+  max-height: calc(100vh - 168px);
+  overflow-y: auto;
+  background: #fff;
+  color: #1f2937;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 100;
+}
+
+.ovr-states-panel.open { display: block; }
+
+.ovr-states-list {
+  list-style: none;
+  padding: 4px 0;
+}
+
+.ovr-state-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ovr-state-label:hover { background: rgba(59,130,246,0.07); color: #1d4ed8; }
+
+.ovr-state-label.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 /* ── Draw panel ───────────────────────────────────────────────────────────── */
 
 #draw-panel {

@@ -233,6 +233,40 @@ function buildPoiLayer(group) {
   };
 }
 
+// Boundaries submenu — each entry loads a GeoJSON polygon layer (US counties
+// or counties_by_state) with configurable fill/line styling and an optional name label.
+const BOUNDARY_CONFIGS = [
+  { id: 'counties', label: 'Counties', url: '/geojson/US_counties.json', nameProp: 'NAME' },
+  { id: 'states',   label: 'States',   url: '/geojson/US_states.json',   nameProp: 'NAME' },
+];
+
+// State/territory identifiers — one per file in public/geojson/counties_by_state/.
+const STATE_CODES = [
+  'AK', 'AL', 'AR', 'AS', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL', 'GA', 'GU',
+  'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME', 'MI', 'MN',
+  'MO', 'MP', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH',
+  'OK', 'OR', 'PA', 'PR', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VI', 'VT',
+  'WA', 'WI', 'WV', 'WY',
+];
+
+// The per-state county files aren't standard GeoJSON FeatureCollections —
+// `features` is a single Feature whose `counties` array holds one
+// {name, geographicRegion, geometry} entry per county. Reshape that into a
+// proper FeatureCollection of per-county polygon Features.
+async function fetchStateCountiesGeoJSON(code) {
+  const resp = await fetch(`/geojson/counties_by_state/${code}.json`);
+  const raw  = await resp.json();
+  const counties = raw.features?.counties ?? [];
+  return {
+    type: 'FeatureCollection',
+    features: counties.map(c => ({
+      type:       'Feature',
+      properties: { name: c.name, geographicRegion: c.geographicRegion, state: code },
+      geometry:   c.geometry,
+    })),
+  };
+}
+
 export class OverlaysPanel {
   constructor(map) {
     this._map      = map;
@@ -255,6 +289,23 @@ export class OverlaysPanel {
     this._placeArmed    = false;
     this._placementHandler = null;
 
+    // ── Boundaries overlay state ───────────────────────────────────────────
+    this._boundaries = {};
+    BOUNDARY_CONFIGS.forEach(cfg => {
+      this._boundaries[cfg.id] = {
+        active:      false,
+        lineColor:   '#1a1a1a',
+        lineWidth:   1.5,
+        fillColor:   '#3388ff',
+        fillOpacity: 0.1,
+        showNames:   false,
+      };
+    });
+
+    // ── Per-state county overlay state ─────────────────────────────────────
+    this._activeCountyStates = new Set();   // state codes currently on the map
+    this._countyGeoCache      = {};         // code → transformed FeatureCollection
+
     // Re-register the sprite and restore any active layers whenever a new
     // style loads (initial load or after style switching).
     this._map.on('style.load', () => this._onStyleLoad());
@@ -266,6 +317,159 @@ export class OverlaysPanel {
     for (const id of this._active) {
       const group = POI_GROUPS.find(g => g.id === id);
       if (group) this._addLayer(group);
+    }
+
+    BOUNDARY_CONFIGS.forEach(cfg => {
+      if (cfg.id === 'counties') return;
+      if (this._boundaries[cfg.id].active) this._addBoundaryLayer(cfg);
+    });
+
+    for (const code of this._activeCountyStates) this._addCountyStateLayer(code);
+  }
+
+  // ── Boundaries: layer management ─────────────────────────────────────────
+
+  _boundaryLayerIds(cfg) {
+    const base = `boundary-${cfg.id}`;
+    return { fill: `${base}-fill`, line: `${base}-line`, label: `${base}-label` };
+  }
+
+  _addBoundaryLayer(cfg) {
+    const state = this._boundaries[cfg.id];
+    const srcId = `boundary-${cfg.id}-src`;
+    const ids   = this._boundaryLayerIds(cfg);
+
+    if (!this._map.getSource(srcId)) {
+      this._map.addSource(srcId, { type: 'geojson', data: cfg.url });
+    }
+    if (!this._map.getLayer(ids.fill)) {
+      this._map.addLayer({
+        id: ids.fill, type: 'fill', source: srcId,
+        paint: { 'fill-color': state.fillColor, 'fill-opacity': state.fillOpacity },
+      });
+    }
+    if (!this._map.getLayer(ids.line)) {
+      this._map.addLayer({
+        id: ids.line, type: 'line', source: srcId,
+        paint: { 'line-color': state.lineColor, 'line-width': state.lineWidth },
+      });
+    }
+    if (!this._map.getLayer(ids.label)) {
+      this._map.addLayer({
+        id: ids.label, type: 'symbol', source: srcId,
+        layout: {
+          'text-field':  ['get', cfg.nameProp],
+          'text-font':   ['Noto Sans Regular'],
+          'text-size':   11,
+          'visibility':  state.showNames ? 'visible' : 'none',
+        },
+        paint: {
+          'text-color':      '#333333',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1,
+        },
+      });
+    }
+  }
+
+  _removeBoundaryLayer(cfg) {
+    const srcId = `boundary-${cfg.id}-src`;
+    const ids   = this._boundaryLayerIds(cfg);
+    [ids.label, ids.line, ids.fill].forEach(id => {
+      if (this._map.getLayer(id)) this._map.removeLayer(id);
+    });
+    if (this._map.getSource(srcId)) this._map.removeSource(srcId);
+  }
+
+  _updateBoundaryPaint(cfg) {
+    if (cfg.id === 'counties') { this._updateCountyStateLayers(); return; }
+
+    const state = this._boundaries[cfg.id];
+    const ids   = this._boundaryLayerIds(cfg);
+    if (this._map.getLayer(ids.fill)) {
+      this._map.setPaintProperty(ids.fill, 'fill-color',   state.fillColor);
+      this._map.setPaintProperty(ids.fill, 'fill-opacity', state.fillOpacity);
+    }
+    if (this._map.getLayer(ids.line)) {
+      this._map.setPaintProperty(ids.line, 'line-color', state.lineColor);
+      this._map.setPaintProperty(ids.line, 'line-width', state.lineWidth);
+    }
+    if (this._map.getLayer(ids.label)) {
+      this._map.setLayoutProperty(ids.label, 'visibility', state.showNames ? 'visible' : 'none');
+    }
+  }
+
+  // ── Boundaries: per-state county layers ──────────────────────────────────
+
+  _countyStateLayerIds(code) {
+    const base = `county-${code}`;
+    return { fill: `${base}-fill`, line: `${base}-line`, label: `${base}-label` };
+  }
+
+  async _addCountyStateLayer(code) {
+    const srcId = `county-${code}-src`;
+    if (this._map.getSource(srcId)) return;
+
+    let data = this._countyGeoCache[code];
+    if (!data) {
+      data = await fetchStateCountiesGeoJSON(code);
+      this._countyGeoCache[code] = data;
+    }
+    // The panel may have been closed (and the layer removed) while we awaited.
+    if (!this._activeCountyStates.has(code) || this._map.getSource(srcId)) return;
+
+    const state = this._boundaries.counties;
+    const ids   = this._countyStateLayerIds(code);
+
+    this._map.addSource(srcId, { type: 'geojson', data });
+    this._map.addLayer({
+      id: ids.fill, type: 'fill', source: srcId,
+      paint: { 'fill-color': state.fillColor, 'fill-opacity': state.fillOpacity },
+    });
+    this._map.addLayer({
+      id: ids.line, type: 'line', source: srcId,
+      paint: { 'line-color': state.lineColor, 'line-width': state.lineWidth },
+    });
+    this._map.addLayer({
+      id: ids.label, type: 'symbol', source: srcId,
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font':  ['Noto Sans Regular'],
+        'text-size':  11,
+        'visibility': state.showNames ? 'visible' : 'none',
+      },
+      paint: {
+        'text-color':      '#333333',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1,
+      },
+    });
+  }
+
+  _removeCountyStateLayer(code) {
+    const srcId = `county-${code}-src`;
+    const ids   = this._countyStateLayerIds(code);
+    [ids.label, ids.line, ids.fill].forEach(id => {
+      if (this._map.getLayer(id)) this._map.removeLayer(id);
+    });
+    if (this._map.getSource(srcId)) this._map.removeSource(srcId);
+  }
+
+  _updateCountyStateLayers() {
+    const state = this._boundaries.counties;
+    for (const code of this._activeCountyStates) {
+      const ids = this._countyStateLayerIds(code);
+      if (this._map.getLayer(ids.fill)) {
+        this._map.setPaintProperty(ids.fill, 'fill-color',   state.fillColor);
+        this._map.setPaintProperty(ids.fill, 'fill-opacity', state.fillOpacity);
+      }
+      if (this._map.getLayer(ids.line)) {
+        this._map.setPaintProperty(ids.line, 'line-color', state.lineColor);
+        this._map.setPaintProperty(ids.line, 'line-width', state.lineWidth);
+      }
+      if (this._map.getLayer(ids.label)) {
+        this._map.setLayoutProperty(ids.label, 'visibility', state.showNames ? 'visible' : 'none');
+      }
     }
   }
 
@@ -547,11 +751,225 @@ export class OverlaysPanel {
     textItem.appendChild(textDetails);
     menuList.appendChild(textItem);
 
+    // ── Boundaries submenu ────────────────────────────────────────────────
+    const boundariesItem = document.createElement('li');
+    boundariesItem.className = 'ovr-menu-item';
+
+    const boundariesDetails = document.createElement('details');
+
+    const boundariesSummary = document.createElement('summary');
+    boundariesSummary.className = 'ovr-submenu-header';
+    boundariesSummary.textContent = 'Boundaries';
+
+    const boundariesList = document.createElement('ul');
+    boundariesList.className = 'ovr-group-list';
+
+    BOUNDARY_CONFIGS.forEach(cfg => {
+      const state = this._boundaries[cfg.id];
+
+      const subItem = document.createElement('li');
+      const subDetails = document.createElement('details');
+
+      const subSummary = document.createElement('summary');
+      subSummary.className = 'ovr-submenu-header';
+      subSummary.textContent = cfg.label;
+
+      const controls = document.createElement('div');
+      controls.className = 'ovr-text-controls';
+
+      // Show <States> checkbox — Counties uses the per-state side panel instead.
+      let showRow = null;
+      if (cfg.id !== 'counties') {
+        showRow = document.createElement('div');
+        showRow.className = 'ovr-text-row';
+        const showLabel = document.createElement('label');
+        showLabel.className = 'ovr-text-checkbox-label';
+        const showCheckbox = document.createElement('input');
+        showCheckbox.type = 'checkbox';
+        showCheckbox.className = 'ovr-text-checkbox';
+        stopClick(showCheckbox);
+        showCheckbox.addEventListener('change', () => {
+          state.active = showCheckbox.checked;
+          if (state.active) this._addBoundaryLayer(cfg);
+          else this._removeBoundaryLayer(cfg);
+        });
+        showLabel.append(showCheckbox, document.createTextNode(` Show ${cfg.label}`));
+        showRow.appendChild(showLabel);
+      }
+
+      // Line color
+      const lineColorRow = document.createElement('div');
+      lineColorRow.className = 'ovr-text-row';
+      const lineColorLabel = document.createElement('label');
+      lineColorLabel.textContent = 'Line color';
+      const lineColorInput = document.createElement('input');
+      lineColorInput.type = 'color';
+      lineColorInput.className = 'ovr-text-color';
+      lineColorInput.value = state.lineColor;
+      stopClick(lineColorInput);
+      lineColorInput.addEventListener('input', () => {
+        state.lineColor = lineColorInput.value;
+        this._updateBoundaryPaint(cfg);
+      });
+      lineColorRow.append(lineColorLabel, lineColorInput);
+
+      // Line width
+      const lineWidthRow = document.createElement('div');
+      lineWidthRow.className = 'ovr-text-row';
+      const lineWidthLabel = document.createElement('label');
+      lineWidthLabel.textContent = 'Line width';
+      const lineWidthInput = document.createElement('input');
+      lineWidthInput.type = 'number';
+      lineWidthInput.min = 0;
+      lineWidthInput.max = 10;
+      lineWidthInput.step = 0.5;
+      lineWidthInput.value = state.lineWidth;
+      lineWidthInput.className = 'ovr-text-size-input';
+      stopClick(lineWidthInput);
+      lineWidthInput.addEventListener('change', () => {
+        state.lineWidth = Math.max(0, Math.min(10, Number(lineWidthInput.value) || 0));
+        lineWidthInput.value = state.lineWidth;
+        this._updateBoundaryPaint(cfg);
+      });
+      lineWidthRow.append(lineWidthLabel, lineWidthInput);
+
+      // Fill color
+      const fillColorRow = document.createElement('div');
+      fillColorRow.className = 'ovr-text-row';
+      const fillColorLabel = document.createElement('label');
+      fillColorLabel.textContent = 'Fill color';
+      const fillColorInput = document.createElement('input');
+      fillColorInput.type = 'color';
+      fillColorInput.className = 'ovr-text-color';
+      fillColorInput.value = state.fillColor;
+      stopClick(fillColorInput);
+      fillColorInput.addEventListener('input', () => {
+        state.fillColor = fillColorInput.value;
+        this._updateBoundaryPaint(cfg);
+      });
+      fillColorRow.append(fillColorLabel, fillColorInput);
+
+      // Fill opacity
+      const fillOpacityRow = document.createElement('div');
+      fillOpacityRow.className = 'ovr-text-row';
+      const fillOpacityLabel = document.createElement('label');
+      fillOpacityLabel.textContent = 'Fill opacity';
+      const fillOpacityInput = document.createElement('input');
+      fillOpacityInput.type = 'number';
+      fillOpacityInput.min = 0;
+      fillOpacityInput.max = 1;
+      fillOpacityInput.step = 0.05;
+      fillOpacityInput.value = state.fillOpacity;
+      fillOpacityInput.className = 'ovr-text-size-input';
+      stopClick(fillOpacityInput);
+      fillOpacityInput.addEventListener('change', () => {
+        state.fillOpacity = Math.max(0, Math.min(1, Number(fillOpacityInput.value) || 0));
+        fillOpacityInput.value = state.fillOpacity;
+        this._updateBoundaryPaint(cfg);
+      });
+      fillOpacityRow.append(fillOpacityLabel, fillOpacityInput);
+
+      // Show names checkbox
+      const namesRow = document.createElement('div');
+      namesRow.className = 'ovr-text-row';
+      const namesLabel = document.createElement('label');
+      namesLabel.className = 'ovr-text-checkbox-label';
+      const namesCheckbox = document.createElement('input');
+      namesCheckbox.type = 'checkbox';
+      namesCheckbox.className = 'ovr-text-checkbox';
+      stopClick(namesCheckbox);
+      namesCheckbox.addEventListener('change', () => {
+        state.showNames = namesCheckbox.checked;
+        this._updateBoundaryPaint(cfg);
+      });
+      namesLabel.append(namesCheckbox, document.createTextNode(' Show names'));
+      namesRow.appendChild(namesLabel);
+
+      if (showRow) controls.appendChild(showRow);
+      controls.append(lineColorRow, lineWidthRow, fillColorRow, fillOpacityRow, namesRow);
+      subDetails.append(subSummary, controls);
+      subItem.appendChild(subDetails);
+      boundariesList.appendChild(subItem);
+
+      // ── Counties: per-state side panel ─────────────────────────────────
+      if (cfg.id === 'counties') {
+        const statesPanel = document.createElement('div');
+        statesPanel.className = 'ovr-states-panel';
+
+        const statesList = document.createElement('ul');
+        statesList.className = 'ovr-states-list';
+
+        STATE_CODES.forEach(code => {
+          const li = document.createElement('li');
+          const label = document.createElement('label');
+          label.className = 'ovr-state-label';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'ovr-text-checkbox';
+          stopClick(checkbox);
+          checkbox.addEventListener('change', () => {
+            label.classList.toggle('active', checkbox.checked);
+            if (checkbox.checked) {
+              this._activeCountyStates.add(code);
+              this._addCountyStateLayer(code);
+            } else {
+              this._activeCountyStates.delete(code);
+              this._removeCountyStateLayer(code);
+            }
+          });
+
+          label.append(checkbox, document.createTextNode(` ${code}`));
+          li.appendChild(label);
+          statesList.appendChild(li);
+        });
+
+        statesPanel.appendChild(statesList);
+        document.body.appendChild(statesPanel);
+        this._countiesStatesPanel = statesPanel;
+
+        // Open/close the side panel in lock-step with the Counties submenu,
+        // positioning it just to the right of the Overlays panel (appended to
+        // <body> so it isn't clipped by the panel's overflow:auto).
+        subDetails.addEventListener('toggle', () => {
+          if (subDetails.open) {
+            const rect = this._panel.getBoundingClientRect();
+            statesPanel.style.left = `${rect.right + 4}px`;
+            statesPanel.style.top  = `${rect.top}px`;
+          }
+          statesPanel.classList.toggle('open', subDetails.open);
+        });
+        this._countiesSubDetails = subDetails;
+      }
+    });
+
+    boundariesDetails.append(boundariesSummary, boundariesList);
+    boundariesItem.appendChild(boundariesDetails);
+    menuList.appendChild(boundariesItem);
+
     this._panel.appendChild(menuList);
     container.appendChild(this._panel);
 
     // Disarm placement mode if the panel is closed mid-arm
     container.addEventListener('panel-close', () => this._disarmPlacement());
+
+    // Close the per-state counties side panel if the Overlays panel closes
+    container.addEventListener('panel-close', () => this._closeCountiesStates());
+
+    // The Overlays panel can also be closed by clicking another toolbar menu
+    // or anywhere outside it (main.js's closeAllDropdowns, which just removes
+    // the 'open' class without firing 'panel-close'). Watch for that too, so
+    // the per-state side panel never stays visible after the Overlays panel
+    // itself has closed.
+    new MutationObserver(() => {
+      if (!container.classList.contains('open')) this._closeCountiesStates();
+    }).observe(container, { attributes: true, attributeFilter: ['class'] });
+
+    // Collapsing the "Boundaries" submenu (without closing the whole panel)
+    // should also close the Counties side panel.
+    boundariesDetails.addEventListener('toggle', () => {
+      if (!boundariesDetails.open) this._closeCountiesStates();
+    });
 
     // Escape key disarms placement mode
     document.addEventListener('keydown', (e) => {
@@ -579,6 +997,16 @@ export class OverlaysPanel {
       this._placeText(e.lngLat);
     };
     this._map.once('click', this._placementHandler);
+  }
+
+  /**
+   * Collapse the Counties submenu and hide its per-state side panel. The side
+   * panel must never be visible without the Counties submenu open, and the
+   * Counties submenu must never be open while the Overlays panel is closed.
+   */
+  _closeCountiesStates() {
+    if (this._countiesSubDetails) this._countiesSubDetails.open = false;
+    if (this._countiesStatesPanel) this._countiesStatesPanel.classList.remove('open');
   }
 
   _disarmPlacement() {
